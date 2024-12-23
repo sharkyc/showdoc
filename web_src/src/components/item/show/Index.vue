@@ -1,11 +1,12 @@
 <template>
   <div class="hello">
     <Header></Header>
-
+    <div class="back-home"><a href="/">首页</a></div>
     <!-- 展示常规项目 -->
     <ShowRegularItem
       :item_info="item_info"
-      :search_item="search_item"
+      :key="item_key"
+      :searchItem="searchItem"
       :keyword="keyword"
       v-if="
         item_info &&
@@ -19,14 +20,17 @@
     <!-- 展示单页项目 -->
     <ShowSinglePageItem
       :item_info="item_info"
+      :key="item_key"
       v-if="item_info && item_info.item_type == 2"
     ></ShowSinglePageItem>
 
     <!-- 展示表格项目 -->
     <ShowTableItem
       :item_info="item_info"
+      :key="item_key"
       v-if="item_info && item_info.item_type == 4"
     ></ShowTableItem>
+
     <!-- 如果是处于登录态的话，则引入通知组件  -->
     <Notify v-if="item_info.is_login"></Notify>
 
@@ -41,13 +45,15 @@ import ShowTableItem from '@/components/item/show/show_table_item/Index'
 import watermark from 'watermark-dom'
 import moment from 'moment'
 import Notify from '@/components/common/Notify'
+import { getUserInfo } from '@/models/user.js'
 
 export default {
   data() {
     return {
       item_info: '',
       keyword: '',
-      watermark_txt: '测试水印，1021002301，测试水印，100101010111101'
+      watermark_txt: '测试水印，1021002301，测试水印，100101010111101',
+      item_key: 1
     }
   },
   components: {
@@ -58,17 +64,17 @@ export default {
   },
   methods: {
     // 获取菜单
-    get_item_menu(keyword) {
+    getItemMenu(keyword) {
       if (!keyword) {
         keyword = ''
       }
-      var that = this
-      var loading = that.$loading()
+      var loading = this.$loading()
       var item_id = this.$route.params.item_id ? this.$route.params.item_id : 0
       var page_id = this.$route.query.page_id ? this.$route.query.page_id : 0
       page_id = this.$route.params.page_id
         ? this.$route.params.page_id
         : page_id
+
       let params = {
         item_id: item_id,
         keyword: keyword
@@ -85,36 +91,40 @@ export default {
               json.default_page_id = json.menu.pages[0].page_id
             }
           }
+
           // 如果是runapi类型项目，则去掉编辑权限。只允许在runapi里编辑
           if (json.item_type == 3) {
             json.item_manage = json.item_edit = false
           }
-          that.item_info = json
-          that.$store.dispatch('changeItemInfo', json)
-          document.title = that.item_info.item_name + '--ShowDoc'
-          if (json.unread_count > 0) {
-            that.$message({
-              showClose: true,
-              duration: 10000,
-              dangerouslyUseHTMLString: true,
-              message: '<a href="#/notice/index">你有新的未读消息，点击查看</a>'
-            })
-          }
-          // 是否显示水印
+          // console.log(json)
+
+          this.item_info = json
+          this.$store.dispatch('changeItemInfo', json)
+          this.item_key = this.item_key + 1 // key自增以便重新渲染组件
+          document.title = this.item_info.item_name + '--ShowDoc'
           if (json.show_watermark > 0) {
             this.renderWatermark()
           }
         } else if (data.error_code === 10307 || data.error_code === 10303) {
           // 需要输入密码
-          that.$router.replace({
+          this.$router.replace({
             path: '/item/password/' + item_id,
             query: {
               page_id: page_id,
-              redirect: that.$router.currentRoute.fullPath
+              redirect: this.$router.currentRoute.fullPath
             }
           })
-        } else {
-          that.$alert(data.error_message)
+        } else if (data.error_code === 10312) {
+          // 强制登录
+          this.$router.replace({
+            path: '/user/login/',
+            query: {
+              redirect: this.$router.currentRoute.fullPath
+            }
+          })
+        }
+         else {
+          this.$alert(data.error_message)
         }
       })
 
@@ -123,13 +133,12 @@ export default {
         loading.close()
       }, 20000)
     },
-    search_item(keyword) {
+    searchItem(keyword) {
       this.item_info = ''
       this.$store.dispatch('changeItemInfo', '')
       this.keyword = keyword
-      this.get_item_menu(keyword)
+      this.getItemMenu(keyword)
     },
-
     // 渲染水印
     renderWatermark() {
       // 如果已经有全局缓存的登录数据
@@ -142,16 +151,17 @@ export default {
           }
           setTimeout(() => {
             watermark.load({
-              monitor: false, // monitor 是否监控， true: 不可删除水印; false: 可删水印。
-              watermark_txt: this.watermark_txt
+              monitor: true, // monitor 是否监控， true: 不可删除水印; false: 可删水印。
+              watermark_txt: this.watermark_txt,
+              watermark_alpha: 0.05
             })
-          }, 700)
+          }, 500)
         }
       } else {
         // 网络请求获取用户信息
-        this.get_user_info(response => {
-          if (response.data.error_code === 0) {
-            let user_info = response.data.data
+        getUserInfo(data => {
+          if (data.error_code === 0) {
+            let user_info = data.data
             this.$store.dispatch('changeUserInfo', user_info).then(() => {
               this.renderWatermark()
             })
@@ -165,11 +175,20 @@ export default {
     }
   },
   mounted() {
-    this.get_item_menu()
+    this.getItemMenu()
     this.$store.dispatch('changeOpenCatId', 0)
+  },
+  watch: {
+    '$store.state.item_key': {
+      handler() {
+        this.getItemMenu()
+        this.$store.dispatch('changeOpenCatId', 0)
+      }
+    }
   },
   beforeDestroy() {
     this.$message.closeAll()
+    this.$notify.closeAll()
     document.title = 'ShowDoc'
     watermark.remove() // 去掉水印
   }
@@ -177,4 +196,8 @@ export default {
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped></style>
+<style scoped>
+.back-home {
+  display: none;
+}
+</style>

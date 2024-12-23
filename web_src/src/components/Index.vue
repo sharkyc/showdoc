@@ -3,11 +3,12 @@
     <!--header-->
     <div class="header">
       <div class="header-wrap">
-        <div class="logo">
-          <a href="/">
-            <img src="static/imgs/Logo.png" />
-          </a>
-        </div>
+        <a href="/">
+          <div class="logo">
+            <img class="logo-img" src="@/assets/Logo.svg" />
+            <span class="logo-title">ShowDoc</span>
+          </div>
+        </a>
         <input type="checkbox" name id="mobile-menu-toggle" value />
         <label class="gh" for="mobile-menu-toggle">
           <span></span>
@@ -20,7 +21,7 @@
             <li>
               <a
                 target="_blank"
-                v-if="lang == 'zh-cn'"
+                v-if="$lang == 'zh-cn'"
                 href="https://www.showdoc.cc/clients"
                 >客户端</a
               >
@@ -185,6 +186,14 @@
     <div class="hfoot">
       <div class="wrapper">
         <h2>{{ $t('section_description9') }}</h2>
+        <p class="case-logo">
+          <img src="static/imgs/case-logo/tencent.png" />
+          <img src="static/imgs/case-logo/huawei_logo.png" />
+          <img src="static/imgs/case-logo/baidu.png" />
+          <img src="static/imgs/case-logo/jingdong.png" />
+          <img src="static/imgs/case-logo/zijie.png" />
+          <img src="static/imgs/case-logo/shunfeng.png" />
+        </p>
         <router-link to="/user/login" class="btn">{{
           $t('section_title9')
         }}</router-link>
@@ -197,6 +206,7 @@
 </template>
 
 <script>
+import { getUserInfo } from '@/models/user'
 export default {
   name: 'Index',
   data() {
@@ -204,7 +214,6 @@ export default {
       height: '',
       link: '',
       link_text: '',
-      lang: '',
       beian: ''
     }
   },
@@ -219,23 +228,23 @@ export default {
       this.height = winHeight + 'px'
     },
     homePageSetting() {
-      var url = DocConfig.server + '/api/common/homePageSetting'
-      this.axios.post(url, this.form).then(response => {
-        if (response.data.error_code === 0) {
-          this.beian = response.data.data.beian
-          if (response.data.data.home_page == 2) {
+      var url = '/api/common/homePageSetting'
+      this.request(url, this.form,'post',false).then(data => {
+        if (data.error_code === 0) {
+          this.beian = data.data.beian
+          if (data.data.home_page == 2) {
             // 跳转到登录页面
             this.$router.replace({
               path: '/user/login'
             })
           }
           if (
-            response.data.data.home_page == 3 &&
-            response.data.data.home_item
+            data.data.home_page == 3 &&
+            data.data.home_item
           ) {
             // 跳转到指定项目
             this.$router.replace({
-              path: '/' + response.data.data.home_item
+              path: '/' + data.data.home_item
             })
           }
         }
@@ -243,16 +252,14 @@ export default {
     }
   },
   mounted() {
-    var that = this
-    this.lang = DocConfig.lang
     this.getHeight()
     this.homePageSetting()
-    that.link = '/user/login'
-    that.link_text = that.$t('index_login_or_register')
-    this.get_user_info(function(response) {
-      if (response.data.error_code === 0) {
-        that.link = '/item/index'
-        that.link_text = that.$t('my_item')
+    this.link = '/user/login'
+    this.link_text = this.$t('index_login_or_register')
+    getUserInfo(data => {
+      if (data.error_code === 0) {
+        this.link = '/item/index'
+        this.link_text = this.$t('my_item')
       }
     })
   }
@@ -263,3 +270,9 @@ export default {
 <style scoped src="@/../static/css/qietu.css"></style>
 <style scoped src="@/../static/css/style.css"></style>
 <style scoped src="@/../static/css/responsive.css"></style>
+<style scoped>
+.case-logo img {
+  width: 200px;
+  padding: 20px;
+}
+</style>

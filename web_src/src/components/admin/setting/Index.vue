@@ -33,7 +33,6 @@
       <el-form-item v-show="$lang == 'zh-cn'" label="备案号">
         <el-input v-model="form.beian" class="form-el"></el-input>
         <el-tooltip
-          class="item"
           effect="dark"
           content="设置后会展示在网站首页最下方"
           placement="top"
@@ -48,7 +47,6 @@
           class="form-el"
         ></el-input>
         <el-tooltip
-          class="item"
           effect="dark"
           :content="$t('history_version_count_content')"
           placement="top"
@@ -60,9 +58,18 @@
       <el-form-item :label="$t('watermark')">
         <el-switch v-model="form.show_watermark"></el-switch>
         <el-tooltip
-          class="item"
           effect="dark"
           :content="$t('watermark_tips')"
+          placement="top"
+        >
+          <i class="el-icon-question"></i>
+        </el-tooltip>
+      </el-form-item>
+      <el-form-item :label="$t('force_login')">
+        <el-switch v-model="form.force_login"></el-switch>
+        <el-tooltip
+          effect="dark"
+          :content="$t('force_login_tips')"
           placement="top"
         >
           <i class="el-icon-question"></i>
@@ -75,13 +82,51 @@
           placeholder="https://www.your-site.com"
         ></el-input>
         <el-tooltip
-          class="item"
           effect="dark"
           :content="$t('site_url_tips')"
           placement="top"
         >
           <i class="el-icon-question"></i>
         </el-tooltip>
+      </el-form-item>
+      <el-form-item v-show="$lang == 'zh-cn'" label="AI助手认证KEY">
+        <el-input
+          v-model="form.open_api_key"
+          class="form-el"
+          placeholder=""
+        ></el-input>
+
+        <el-tooltip effect="dark" content="点击查看填写说明" placement="top">
+          <i
+            class="el-icon-question cursor-pointer "
+            @click="
+              toOutLink(
+                'https://www.showdoc.com.cn/p/30dd0637811cd5c690ffd547f3c46889'
+              )
+            "
+          ></i>
+        </el-tooltip>
+      </el-form-item>
+      <el-form-item v-show="$lang == 'zh-cn'" label="AI助手代理HOST">
+        <el-input
+          v-model="form.open_api_host"
+          class="form-el"
+          placeholder="可选"
+        ></el-input>
+
+        <el-tooltip effect="dark" content="点击查看填写说明" placement="top">
+          <i
+            class="el-icon-question cursor-pointer "
+            @click="toOutLink('https://github.com/star7th/showdoc/issues/1904')"
+          ></i>
+        </el-tooltip>
+      </el-form-item>
+      <el-form-item v-show="$lang == 'zh-cn'" label="AI助手使用模型名">
+        <el-input
+          v-model="form.ai_model_name"
+          class="form-el"
+          placeholder="可选"
+        ></el-input>
       </el-form-item>
       <el-form-item :label="$t('oss_open')">
         <el-switch v-model="form.oss_open"></el-switch>
@@ -159,6 +204,13 @@
           ></el-input>
         </el-form-item>
 
+        <el-form-item :label="$t('subcat') + '(' + $t('optional') + ')'">
+          <el-input
+            v-model="form.oss_setting.subcat"
+            class="form-el"
+          ></el-input>
+        </el-form-item>
+
         <el-form-item :label="$t('oss_domain')">
           <el-select v-model="form.oss_setting.protocol" style="width:100px;">
             <el-option label="http://" value="http"></el-option>
@@ -201,6 +253,7 @@ export default {
           secret: '',
           endpoint: '',
           bucket: '',
+          subcat: '',
           protocol: 'http',
           domain: '',
           region: '',
@@ -210,83 +263,85 @@ export default {
         history_version_count: 20,
         beian: '',
         show_watermark: false,
-        site_url: ''
+        site_url: '',
+        open_api_key: '',
+        open_api_host: '',
+        ai_model_name: '',
+        force_login:false
       },
       itemList: []
     }
   },
   methods: {
     onSubmit() {
-      var url = DocConfig.server + '/api/adminSetting/saveConfig'
-      this.axios.post(url, this.form).then(response => {
-        if (response.data.error_code === 0) {
-          this.$alert(this.$t('success'))
-        } else {
-          this.$alert(response.data.error_message)
-        }
+      this.request(
+        '/api/adminSetting/saveConfig',
+        this.form,
+        'post',
+        true,
+        'json'
+      ).then(data => {
+        this.$alert(this.$t('success'))
       })
     },
     loadConfig() {
-      var url = DocConfig.server + '/api/adminSetting/loadConfig'
-      this.axios.post(url, this.form).then(response => {
-        if (response.data.error_code === 0) {
-          if (response.data.data.length === 0) {
-            return
-          }
-          this.form.register_open = response.data.data.register_open > 0
-          this.form.history_version_count = response.data.data
-            .history_version_count
-            ? response.data.data.history_version_count
-            : this.form.history_version_count
-          this.form.oss_open = response.data.data.oss_open > 0
-          this.form.home_page =
-            response.data.data.home_page > 0 ? response.data.data.home_page : 1
-          this.form.home_item =
-            response.data.data.home_item > 0 ? response.data.data.home_item : ''
-          this.form.oss_setting = response.data.data.oss_setting
-            ? response.data.data.oss_setting
-            : this.form.oss_setting
-          this.form.oss_setting.region = this.form.oss_setting.region
-            ? this.form.oss_setting.region
-            : ''
-          this.form.oss_setting.secretId = this.form.oss_setting.secretId
-            ? this.form.oss_setting.secretId
-            : ''
-          this.form.oss_setting.secretKey = this.form.oss_setting.secretKey
-            ? this.form.oss_setting.secretKey
-            : ''
-          this.form.beian = response.data.data.beian
-            ? response.data.data.beian
-            : ''
-          this.form.show_watermark = response.data.data.show_watermark > 0
-          this.form.site_url = response.data.data.site_url
-            ? response.data.data.site_url
-            : ''
-        } else {
-          this.$alert(response.data.error_message)
+      this.request('/api/adminSetting/loadConfig', {}).then(data => {
+        if (data.data.length === 0) {
+          return
         }
+        this.form.register_open = data.data.register_open > 0
+        this.form.history_version_count = data.data.history_version_count
+          ? data.data.history_version_count
+          : this.form.history_version_count
+        this.form.oss_open = data.data.oss_open > 0
+        this.form.home_page = data.data.home_page > 0 ? data.data.home_page : 1
+        this.form.home_item = data.data.home_item > 0 ? data.data.home_item : ''
+        // 逐一填充 oss_setting 的属性
+        if (data.data.oss_setting) {
+          Object.keys(this.form.oss_setting).forEach(key => {
+            this.form.oss_setting[key] = data.data.oss_setting[key] !== undefined 
+              ? data.data.oss_setting[key] 
+              : this.form.oss_setting[key];
+          });
+        }
+        this.form.oss_setting.region = this.form.oss_setting.region
+          ? this.form.oss_setting.region
+          : ''
+        this.form.oss_setting.secretId = this.form.oss_setting.secretId
+          ? this.form.oss_setting.secretId
+          : ''
+        this.form.oss_setting.secretKey = this.form.oss_setting.secretKey
+          ? this.form.oss_setting.secretKey
+          : ''
+        this.form.oss_setting.subcat = this.form.oss_setting.subcat
+          ? this.form.oss_setting.subcat
+          : ''
+        this.form.beian = data.data.beian ? data.data.beian : ''
+        this.form.show_watermark = data.data.show_watermark > 0
+        this.form.site_url = data.data.site_url ? data.data.site_url : ''
+        this.form.open_api_key = data.data.open_api_key
+          ? data.data.open_api_key
+          : ''
+        this.form.open_api_host = data.data.open_api_host
+          ? data.data.open_api_host
+          : ''
+        this.form.ai_model_name = data.data.ai_model_name
+          ? data.data.ai_model_name
+          : ''
+        this.form.force_login = data.data.force_login > 0
       })
     },
-    get_item_list() {
-      var that = this
-      var url = DocConfig.server + '/api/adminItem/getList'
-
-      var params = new URLSearchParams()
-      params.append('page', 1)
-      params.append('count', 1000)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          // that.$message.success("加载成功");
-          var json = response.data.data
-          that.itemList = json.items
-        } else {
-          that.$alert(response.data.error_message)
-        }
+    getItemList() {
+      this.request('/api/adminItem/getList', {
+        page: 1,
+        count: 100
+      }).then(data => {
+        this.itemList = data.data.items
       })
     }
   },
   mounted() {
-    this.get_item_list()
+    this.getItemList()
     this.loadConfig()
   },
   beforeDestroy() {

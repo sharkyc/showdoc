@@ -1,104 +1,203 @@
 <template>
-  <div class="hello">
-    <Header></Header>
+  <div class="create-item-btn-div">
+    <div class="left">
+      <div @click="regularItem" class="create-item-left-btn">
+        <i class="mr-3 fas fa-plus"></i>
+        <span>{{ $t('create_new_item') }}</span>
+      </div>
+    </div>
+    <div class="right">
+      <SDropdown
+        :title="$t('create_new_item')"
+        titleIcon="fas fa-plus"
+        :menuListGroup="menuListGroup"
+        placement="top-start"
+      >
+        <div class="create-item-right-btn">
+          <i class="fas fa-ellipsis"></i>
+        </div>
+      </SDropdown>
+    </div>
 
-    <el-container>
-      <el-card class="center-card">
-        <template>
-          <el-button type="text" @click="goback" class="goback-btn">
-            <i class="el-icon-back"></i>
-          </el-button>
+    <Basic
+      v-if="showBasic"
+      :callback="
+        () => {
+          showBasic = false
+          callback()
+        }
+      "
+      :defaultItemType="defaultItemType"
+      :itemGroupId="itemGroupId"
+    >
+    </Basic>
+    <Import
+      v-if="showImportFile"
+      :callback="
+        () => {
+          showImportFile = false
+          callback()
+        }
+      "
+    >
+    </Import>
 
-          <el-tabs value="first" type="card">
-            <el-tab-pane :label="$t('new_item')" name="first">
-              <Regular></Regular>
-            </el-tab-pane>
-
-            <el-tab-pane :label="$t('copy_item')" name="third">
-              <Copy></Copy>
-            </el-tab-pane>
-
-            <el-tab-pane :label="$t('import_file')" name="four">
-              <Import></Import>
-            </el-tab-pane>
-
-            <el-tab-pane :label="$t('auto_item')" name="five">
-              <OpenApi></OpenApi>
-            </el-tab-pane>
-          </el-tabs>
-        </template>
-      </el-card>
-    </el-container>
-
-    <Footer></Footer>
+    <OpenApi
+      v-if="showOpenApi"
+      :callback="
+        () => {
+          showOpenApi = false
+          callback()
+        }
+      "
+    >
+    </OpenApi>
   </div>
 </template>
 
 <script>
-import Regular from '@/components/item/add/Regular'
-import Copy from '@/components/item/add/Copy'
+import Basic from '@/components/item/add/Basic'
 import OpenApi from '@/components/item/add/OpenApi'
 import Import from '@/components/item/add/Import'
+import SDropdown from '@/components/common/SDropdown.vue'
 
 export default {
   name: 'Login',
   components: {
-    Regular,
-    Copy,
+    Basic,
     OpenApi,
-    Import
+    Import,
+    SDropdown
+  },
+  props: {
+    callback: {
+      type: Function,
+      required: false,
+      default: () => {},
+    },
+    itemGroupId: 0
+
   },
   data() {
     return {
-      userInfo: {}
+      showBasic: false,
+      showImportFile: false,
+      defaultItemType: '1',
+      showOpenApi: false,
+      showPopover: false,
+      menuListGroup: []
     }
   },
   methods: {
-    get_item_info() {
-      var that = this
-      var url = DocConfig.server + '/api/item/detail'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      that.axios
-        .post(url, params)
-        .then(function(response) {
-          if (response.data.error_code === 0) {
-            var Info = response.data.data
-            that.infoForm = Info
-          } else {
-            that.$alert(response.data.error_message)
-          }
-        })
-        .catch(function(error) {
-          console.log(error)
-        })
+    regularItem() {
+      this.defaultItemType = '1'
+      this.showBasic = true
     },
-    goback() {
-      this.$router.go(-1)
+    singleItem() {
+      this.defaultItemType = '2'
+      this.showBasic = true
+    },
+    tableItem() {
+      this.defaultItemType = '4'
+      this.showBasic = true
+    },
+    importFile() {
+      this.showImportFile = true
+    },
+    autoCreate() {
+      this.showOpenApi = true
     }
   },
 
-  mounted() {},
+  mounted() {
+    this.menuListGroup = [
+      {
+        group_name: this.$t('create'),
+        listMenu: [
+          {
+            title: this.$t('regular_item'),
+            icon: 'fas fa-notes',
+            desc: this.$t('regular_item_desc'),
+            method: this.regularItem
+          },
+          {
+            title: this.$t('single_item'),
+            icon: 'fas fa-file',
+            desc: this.$t('single_item_desc'),
+            method: this.singleItem
+          },
+          {
+            title: this.$t('table_item'),
+            icon: 'fas fa-table',
+            desc: this.$t('table_item_desc'),
+            method: this.tableItem
+          }
+        ]
+      },
+      {
+        group_name: this.$t('import'),
+        listMenu: [
+          {
+            title: this.$t('import_file'),
+            icon: 'fas fa-upload',
+            desc: this.$t('import_file_desc'),
+            method: this.importFile
+          },
+          {
+            title: this.$t('auto_create'),
+            icon: 'fas fa-terminal',
+            desc: this.$t('auto_create_desc'),
+            method: this.autoCreate
+          }
+        ]
+      }
+    ]
+  },
   beforeDestroy() {}
 }
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-.center-card a {
-  font-size: 12px;
+.create-item-btn-div {
+  margin-left: 250px;
+  width: 200px;
+  height: 60px;
+  bottom: 20px;
+  position: fixed;
+  box-shadow: 0 0 8px #0000001a;
+  border-radius: 10px;
+  background: #ffffff;
+  font-weight: 600;
 }
 
-.center-card {
-  text-align: center;
-  width: 463px;
-  min-height: 600px;
-  max-height: 800px;
+.create-item-btn-div .left,
+.create-item-btn-div .right {
+  height: 60px;
+  display: inline-block;
 }
 
-.goback-btn {
-  font-size: 18px;
-  margin-right: 800px;
-  margin-bottom: 15px;
+.create-item-left-btn {
+  width: 135px;
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+}
+
+/* >>> 符号表示对子组件生效 */
+.create-item-btn-div >>> .create-item-right-btn {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.el-dropdown-link,
+a {
+  color: #343a40;
 }
 </style>

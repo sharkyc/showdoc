@@ -1,41 +1,62 @@
 <template>
-  <div class="hello" v-if="showComp">
-    <Header></Header>
-    <div id="header"></div>
+  <div :class="device" v-if="showComp">
+    <Header v-if="showPCHeader"  id="header" :item_info="item_info">
+      <HeaderRight
+        :page_id="page_id"
+        :item_info="item_info"
+        :page_info="page_info"
+        :searchItem="searchItem"
+      ></HeaderRight>
+    </Header>
 
-    <div class="container doc-container" id="doc-container">
+    <MobileHeader
+      :item_info="item_info"
+      :searchItem="searchItem"
+      :getPageContent="getPageContent"
+      v-if="showMobileHeader"
+    ></MobileHeader>
+
+    <div class="doc-container " id="doc-container">
       <div id="left-side">
         <LeftMenu
           ref="leftMenu"
-          :get_page_content="get_page_content"
+          :getPageContent="getPageContent"
           :keyword="keyword"
           :item_info="item_info"
-          :search_item="search_item"
-          v-if="item_info"
+          :searchItem="searchItem"
+          v-if="item_info && !showMobileHeader"
         ></LeftMenu>
+
+        <LeftMenuBottomBar
+          :item_id="item_info.item_id"
+          :page_info="page_info"
+          :searchItem="searchItem"
+          :page_id="page_id"
+          :item_info="item_info"
+          v-if="item_info"
+        ></LeftMenuBottomBar>
       </div>
 
-      <div id="right-side">
-        <div
-          id="p-content"
-          @mouseenter="showfullPageBtn = true"
-          @mouseleave="showfullPageBtn = false"
-        >
+      <div id="content-side">
+        <div id="p-content">
           <div class="doc-title-box" id="doc-title-box">
-            <span id="doc-title-span" class="dn"></span>
-            <h2 id="doc-title">{{ page_title }}</h2>
-            <i
-              class="el-icon-full-screen"
-              id="full-page"
-              v-show="showfullPageBtn && page_id"
-              @click="clickFullPage"
-            ></i>
-            <i
-              class="el-icon-upload item"
-              id="attachment"
-              v-if="attachment_count"
-              @click="ShowAttachment"
-            ></i>
+            <span class="v3-font-size-lg font-bold " id="doc-title">{{
+              page_title
+            }}</span>
+            <span class="float-right">
+              <i
+                class="el-icon-upload item"
+                id="attachment"
+                v-if="attachment_count"
+                @click="showAttachmentListDialog = true"
+              ></i>
+              <i
+                v-if="page_id && !isMobile()"
+                class="el-icon-full-screen"
+                id="full-page"
+                @click="clickFullPage"
+              ></i>
+            </span>
           </div>
           <div id="doc-body">
             <div id="page_md_content" class="page_content_main">
@@ -46,21 +67,24 @@
                 :keyword="keyword"
               ></Editormd>
             </div>
-            <div v-if="emptyItem && lang == 'zh-cn'" class="empty-tips">
-              <div class="icon"><i class="el-icon-shopping-cart-2"></i></div>
+            <div v-if="emptyItem && $lang == 'zh-cn'" class="empty-tips">
+              <div class="icon">
+                <i class="el-icon-warning"></i>
+              </div>
               <div class="text">
                 <p>
-                  当前项目是空的，你可以点击右上方的 + 以手动添加页面。
+                  当前项目是空的，你可以点击左下方的 + 以手动添加页面。
                 </p>
 
                 <div>
                   除了手动添加外，你还可以通过以下三种方式自动化生成文档：
                   <p class="links">
-                    <a href="https://www.showdoc.com.cn/runapi" target="_blank"
-                      >使用runapi工具自动生成（推荐）</a
-                    ><br />
+                    <i class="el-icon-star-on v3-color-yellow"></i>
+                    <a href="https://www.showdoc.com.cn/runapi" target="_blank">
+                      使用runapi工具自动生成（推荐）</a
+                    ><i class="el-icon-star-on v3-color-yellow"></i><br />
                     <a
-                      href="https://www.showdoc.com.cn/page/741656402509783"
+                      href="https://www.showdoc.com.cn/page/7416564025093"
                       target="_blank"
                     >
                       使用程序注释自动生成</a
@@ -76,45 +100,45 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <OpBar
-          :page_id="page_id"
-          :item_id="item_info.item_id"
-          :item_info="item_info"
-          :page_info="page_info"
-        ></OpBar>
+      <div id="right-side">
+        <div id="toc-pos"></div>
       </div>
     </div>
 
-    <BackToTop></BackToTop>
+    <el-backtop right="40" bottom="40"></el-backtop>
     <Toc v-if="page_id && showToc"></Toc>
 
     <!-- 附件列表 -->
     <AttachmentList
-      callback
       :item_id="page_info.item_id"
       :manage="false"
       :page_id="page_info.page_id"
-      ref="AttachmentList"
+      v-if="showAttachmentListDialog"
+      :callback="
+        data => {
+          this.showAttachmentListDialog = false
+        }
+      "
     ></AttachmentList>
-
-    <Footer></Footer>
   </div>
 </template>
 
 <script>
 import Editormd from '@/components/common/Editormd'
-import BackToTop from '@/components/common/BackToTop'
-import Toc from '@/components/item/show/show_regular_item/Toc'
+import Toc from '@/components/common/Toc'
 import LeftMenu from '@/components/item/show/show_regular_item/LeftMenu'
-import OpBar from '@/components/item/show/show_regular_item/OpBar'
 import AttachmentList from '@/components/page/edit/AttachmentList'
 import { rederPageContent } from '@/models/page'
-
+import HeaderRight from './HeaderRight'
+import Header from '../Header'
+import MobileHeader from '../MobileHeader'
+import LeftMenuBottomBar from './LeftMenuBottomBar'
 export default {
   props: {
     item_info: '',
-    search_item: '',
+    searchItem: () => {},
     keyword: ''
   },
   data() {
@@ -129,29 +153,32 @@ export default {
       copyText: '',
       attachment_count: '',
       fullPage: false,
-      showfullPageBtn: false,
       showToc: true,
       showComp: true,
       emptyItem: false,
-      lang: ''
+      showAttachmentListDialog: false,
+      showMobileHeader: false,
+      showPCHeader: true,
+      device: 'pc'
     }
   },
   components: {
     Editormd,
     LeftMenu,
-    OpBar,
-    BackToTop,
     Toc,
-    AttachmentList
+    AttachmentList,
+    Header,
+    HeaderRight,
+    LeftMenuBottomBar,
+    MobileHeader
   },
   methods: {
     // 获取页面内容
-    get_page_content(page_id) {
+    getPageContent(page_id) {
       if (page_id <= 0) {
         return
       }
       this.adaptScreen()
-      var that = this
       this.request(
         '/api/page/info',
         {
@@ -160,75 +187,67 @@ export default {
         'post',
         false
       ).then(data => {
-        // loading.close();
-        if (data.error_code === 0) {
-          that.content = rederPageContent(
-            data.data.page_content,
-            that.$store.state.item_info.global_param
-          )
-          that.$store.dispatch('changeOpenCatId', data.data.cat_id)
-          that.page_title = data.data.page_title
-          that.page_info = data.data
-          that.attachment_count =
-            data.data.attachment_count > 0 ? data.data.attachment_count : ''
-          // 切换变量让它重新加载、渲染子组件
-          that.page_id = 0
-          that.item_info.default_page_id = page_id
-          that.$nextTick(() => {
-            that.page_id = page_id
-            // 页面回到顶部
-            document.body.scrollTop = document.documentElement.scrollTop = 0
-            document.title = that.page_title + '--ShowDoc'
-          })
-        } else {
-          // that.$alert(data.error_message);
-        }
+        this.content = rederPageContent(
+          data.data.page_content,
+          this.$store.state.item_info.global_param
+        )
+        this.$store.dispatch('changeOpenCatId', data.data.cat_id)
+        this.page_title = data.data.page_title
+        this.page_info = data.data
+        this.attachment_count =
+          data.data.attachment_count > 0 ? data.data.attachment_count : ''
+        // 切换变量让它重新加载、渲染子组件
+        this.page_id = 0
+        this.item_info.default_page_id = page_id
+        this.$nextTick(() => {
+          this.page_id = page_id
+          // 页面回到顶部
+          document.body.scrollTop = document.documentElement.scrollTop = 0
+          document.title = this.page_title + '--ShowDoc'
+        })
       })
     },
     // 根据屏幕宽度进行响应(应对移动设备的访问)
     adaptToMobile() {
       let childRef = this.$refs.leftMenu // 获取子组件
-      childRef.hide_menu()
-      this.show_page_bar = false
+      childRef.hideMenu()
       var doc_container = document.getElementById('doc-container')
-      doc_container.style.width = '95%'
-      doc_container.style.padding = '5px'
-      var header = document.getElementById('header')
-      header.style.height = '10px'
+      doc_container.style.padding = '0px'
+      doc_container.style.width = 'calc( 100vw - 1px )'
+      doc_container.style.minWidth = 'calc( 100vw - 1px )'
+      doc_container.style.maxWidth = 'calc( 100vw - 1px )'
+      doc_container.style.margin = '0px'
+
+      this.showPCHeader = false
+      this.showMobileHeader = true
+      this.device = 'mobile'
+
+      var rightSide = document.getElementById('content-side')
+      rightSide.style.width = 'calc (100% -1px)'
+      rightSide.style.minWidth = 'calc( 100% - 1px )'
+      rightSide.style.maxWidth = 'calc( 100% - 1px )'
+      rightSide.style.minHeight = 'calc(100vh - 60px + 5px )'
+      rightSide.style.marginLeft = '0px'
+      rightSide.style.borderRadius = '0px'
       var docTitle = document.getElementById('doc-title-box')
-      docTitle.style.marginTop = '40px'
+      docTitle.style.marginTop = '0px'
       this.showToc = false
-    },
-    // 根据屏幕宽度进行响应。应对小屏幕pc设备(如笔记本)的访问
-    adaptToSmallpc() {
-      var doc_container = document.getElementById('doc-container')
-      doc_container.style.width = 'calc( 95% - 300px )'
-      doc_container.style.marginLeft = '300px'
-      doc_container.style.padding = '20px'
-      var header = document.getElementById('header')
-      header.style.height = '20px'
-      var docTitle = document.getElementById('doc-title-box')
-      docTitle.style.marginTop = '30px'
+      var leftMenuBottomBar = document.getElementById('left-menu-bottom-bar')
+      if (leftMenuBottomBar) {
+        leftMenuBottomBar.style.display = 'none'
+      }
     },
     // 响应式
     adaptScreen() {
       this.$nextTick(() => {
-        // 根据屏幕宽度进行响应(应对移动设备的访问)
-        if (this.isMobile() || window.innerWidth < 1300) {
-          if (window.innerWidth < 1300 && window.innerWidth > 1100) {
-            this.adaptToSmallpc()
-          } else {
-            this.adaptToMobile()
-          }
+        // 适应移动端
+        if (this.isMobile()) {
+          this.adaptToMobile()
         }
       })
     },
     onCopy() {
       this.$message(this.$t('copy_success'))
-    },
-    ShowAttachment() {
-      let childRef = this.$refs.AttachmentList // 获取子组件
-      childRef.show()
     },
     clickFullPage() {
       // 点击放大页面。由于历史包袱，只能操作dom。这是不规范的，但是现在没时间重构整块页面
@@ -238,9 +257,13 @@ export default {
         this.$nextTick(() => {
           this.showComp = true
           this.showToc = true
+          this.showPCHeader = true
+          this.showMobileHeader = false
+          this.device = 'pc'
         })
       } else {
         this.adaptToMobile()
+        this.showMobileHeader = false
         // 切换变量让它重新加载、渲染子组件
         var page_id = this.page_id
         this.page_id = 0
@@ -250,18 +273,16 @@ export default {
             $('.editormd-html-preview').css('font-size', '16px')
           }, 200)
         })
-
         $('#left-side').hide()
-        $('.op-bar').hide()
+        $('#right-side').hide()
+        $('#left-menu-bottom-bar').hide()
       }
-
       this.fullPage = !this.fullPage
     }
   },
   mounted() {
     this.adaptScreen()
-    this.set_bg_grey()
-    this.lang = DocConfig.lang
+    // console.log(this.$store.state.item_info)
     if (
       this.item_info &&
       this.item_info.menu &&
@@ -276,76 +297,90 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
+.el-dropdown-link,
+a {
+  color: #343a40;
+}
 .page_content_main {
-  width: 800px;
   margin: 0 auto;
   height: 50%;
   overflow: visible;
 }
 
 .editormd-html-preview {
-  width: 95%;
-  font-size: 16px;
+  width: 100%;
   overflow-y: hidden;
 }
 
 #attachment {
   float: right;
   font-size: 25px;
-  margin-top: -40px;
-  margin-right: 5px;
+  margin-right: 20px;
   cursor: pointer;
   color: #abd1f1;
 }
+
 #full-page {
   float: right;
-  font-size: 25px;
-  margin-top: -50px;
-  margin-right: 30px;
+  font-size: 18px;
+  margin-right: 20px;
   cursor: pointer;
   color: #ccc;
 }
+
 #page_md_content {
   padding: 10px 10px 90px 10px;
   overflow: hidden;
-  font-size: 11pt;
-  line-height: 1.7;
   color: #333;
 }
 
 .doc-container {
-  position: static;
-  -webkit-box-shadow: 0px 1px 6px #ccc;
-  -moz-box-shadow: 0px 1px 6px #ccc;
-  -ms-box-shadow: 0px 1px 6px #ccc;
-  -o-box-shadow: 0px 1px 6px #ccc;
-  box-shadow: 0px 1px 6px #ccc;
-  background-color: #fff;
-  border-bottom: 1px solid #d9d9d9;
   margin-bottom: 20px;
-  width: 800px;
   min-height: 750px;
   margin-left: auto;
   margin-right: auto;
-  padding: 20px;
+  margin-top: 110px;
+  max-width: 1500px;
+  min-width: 855px;
+  display: flex;
+  justify-content: center;
 }
 
-#header {
-  height: 80px;
+#left-side {
+  width: 300px;
+  background-color: #f9f9f9;
 }
 
-#doc-body {
-  width: 95%;
-  margin: 0 auto;
+#content-side {
   background-color: #fff;
+  box-shadow: 0 0 4px #0000001a;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  min-width: 830px;
+  max-width: 850px;
+  border-radius: 8px;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+#right-side {
+}
+
+.pc #doc-body {
+  width: calc(100% - 10px);
+  margin-left: 10px;
+}
+
+.mobile #doc-body {
+  width: 100%;
+  margin-left: 0px;
 }
 
 .doc-title-box {
   height: auto;
   width: auto;
-  border-bottom: 1px solid #ebebeb;
-  padding-bottom: 10px;
-  width: 100%;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  padding-bottom: 25px;
+  padding-top: 25px;
   margin: 10px auto;
   text-align: center;
 }
@@ -355,11 +390,11 @@ pre ol {
 }
 
 .markdown-body pre {
-  background-color: #f7f7f9;
-  border: 1px solid #e1e1e8;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 .hljs {
-  background-color: #f7f7f9;
+  background-color: #fff;
 }
 .tool-bar {
   margin-top: -38px;
@@ -369,27 +404,44 @@ pre ol {
   padding: 0px;
   font-size: 14px;
 }
+
 .empty-tips {
   margin: 5% auto;
   width: 400px;
   text-align: center;
-  color: #909399;
+  min-height: 50vh;
+  opacity: 0.5;
 }
 
 .empty-tips .icon {
-  font-size: 100px;
-  margin-left: -50px;
+  font-size: 80px;
 }
 
 .empty-tips .text {
-  text-align: left;
+  text-align: center;
 }
 
 .empty-tips .links {
   line-height: 2em;
+  text-align: center;
 }
 .empty-tips .links a {
-  color: #909399;
   text-decoration: underline;
+  color: #007bff;
+}
+
+/*小屏设备（但不是移动端设备） */
+@media (max-width: 1300px) {
+  .doc-container {
+    display: block;
+  }
+  #content-side {
+    min-width: 300px;
+    margin-left: 300px;
+    margin-top: -10px;
+  }
+  #right-side {
+    display: none;
+  }
 }
 </style>

@@ -1,4 +1,5 @@
 <template>
+  <!--准备弃用这个组件 -->
   <div class="hello">
     <Header></Header>
 
@@ -14,55 +15,23 @@
           </h2>
         </div>
         <div class="header-btn-group pull-right">
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="$t('feedback')"
-            placement="top"
-          >
-            <router-link to>
-              <i @click="feedback" class="el-icon-phone-outline"></i>
-            </router-link>
-          </el-tooltip>
-
-          <el-tooltip
-            v-if="lang == 'zh-cn'"
-            class="item"
-            effect="dark"
-            content="客户端"
-            placement="top"
-          >
-            <a target="_blank" href="https://www.showdoc.cc/clients">
+          <el-tooltip effect="dark" content="客户端" placement="top">
+            <a target="_blank" href="/clients">
               <i class="el-icon-mobile-phone"></i>
             </a>
           </el-tooltip>
 
           <el-tooltip
-            v-if="lang == 'zh-cn'"
-            class="item"
             effect="dark"
             content="接口开发调试工具RunApi"
             placement="top"
           >
-            <a target="_blank" href="https://www.showdoc.cc/runapi">
-              <i class="el-icon-connection"></i>
-            </a>
+            <router-link to>
+              <i @click="toRunApi" class="el-icon-connection"></i>
+            </router-link>
           </el-tooltip>
 
           <el-tooltip
-            v-if="lang == 'zh-cn'"
-            class="item"
-            effect="dark"
-            content="showdoc推送服务"
-            placement="top"
-          >
-            <a target="_blank" href="https://push.showdoc.com.cn">
-              <i class="el-icon-s-promotion"></i>
-            </a>
-          </el-tooltip>
-
-          <el-tooltip
-            class="item"
             effect="dark"
             :content="$t('team_mamage')"
             placement="top"
@@ -72,9 +41,14 @@
             </router-link>
           </el-tooltip>
 
+          <el-tooltip effect="dark" content="用户中心" placement="top">
+            <router-link to="/user/setting">
+              <i class="el-icon-user"></i>
+            </router-link>
+          </el-tooltip>
+
           <el-tooltip
             v-if="isAdmin"
-            class="item"
             effect="dark"
             :content="$t('background')"
             placement="top"
@@ -83,13 +57,8 @@
               <i class="el-icon-s-tools"></i>
             </router-link> </el-tooltip
           >&nbsp;&nbsp;
-          <el-tooltip
-            class="item"
-            effect="dark"
-            :content="$t('more')"
-            placement="top"
-          >
-            <el-dropdown @command="dropdown_callback" trigger="click">
+          <el-tooltip effect="dark" :content="$t('more')" placement="top">
+            <el-dropdown @command="dropdownCallback" trigger="click">
               <span class="el-dropdown-link">
                 <i class="el-icon-caret-bottom el-icon--right"></i>
               </span>
@@ -103,6 +72,10 @@
                 <el-dropdown-item :command="toAttachmentLink">
                   {{ $t('my_attachment') }}
                 </el-dropdown-item>
+                <el-dropdown-item :command="toPushLink">
+                  推送服务
+                </el-dropdown-item>
+
                 <el-dropdown-item :command="logout">{{
                   $t('logout')
                 }}</el-dropdown-item>
@@ -170,9 +143,9 @@
             ghostClass="sortable-chosen"
           >
             <li
+              v-loading="loading"
               class="text-center"
               v-for="item in itemList"
-              v-loading="loading"
               :key="item.item_id"
             >
               <router-link
@@ -183,7 +156,7 @@
                 <!-- 自己创建的话显示项目设置按钮 -->
                 <span
                   class="item-setting"
-                  @click.prevent="click_item_setting(item.item_id)"
+                  @click.prevent="clickItemSetting(item.item_id)"
                   :title="$t('item_setting')"
                   v-if="item.creator"
                 >
@@ -192,7 +165,7 @@
                 <!-- 如果是加入的项目的话，这里显示退出按钮 -->
                 <span
                   class="item-exit"
-                  @click.prevent="click_item_exit(item.item_id)"
+                  @click.prevent="clickItemExit(item.item_id)"
                   :title="$t('item_exit')"
                   v-if="!item.creator"
                 >
@@ -202,7 +175,6 @@
                 <!-- 如果是加密项目的话，这里显示一个加密图标 -->
                 <span class="item-private" v-if="item.is_private">
                   <el-tooltip
-                    class="item"
                     effect="dark"
                     :content="$t('private_tips')"
                     placement="right"
@@ -327,6 +299,7 @@ a {
   margin-top: 5px;
   display: none;
 }
+
 .item-private {
   float: right;
   margin-right: 15px;
@@ -355,11 +328,11 @@ a {
   width: 190px;
   margin-left: 60px;
 }
-
 .sortable-chosen .item-thumbnail {
   color: #ffffff;
   background-color: #ffffff;
 }
+
 .group-bar {
   margin-top: 20px;
   margin-bottom: 20px;
@@ -379,8 +352,9 @@ a {
 </style>
 
 <script>
-import Search from './Search'
 import draggable from 'vuedraggable'
+import Search from './Search'
+import { getUserInfo } from '@/models/user.js'
 if (typeof window !== 'undefined') {
   var $s = require('scriptjs')
 }
@@ -395,10 +369,9 @@ export default {
       itemList: {},
       isAdmin: false,
       keyword: '',
-      lang: '',
       username: '',
       showSearch: false,
-      itemGroupId: '0',
+      itemGroupId: '',
       itemGroupList: [],
       loading: false
     }
@@ -424,7 +397,7 @@ export default {
     }
   },
   methods: {
-    get_item_list() {
+    getItemList() {
       this.loading = true
       const itemGroupId = this.itemGroupId
       this.request('/api/item/myList', {
@@ -434,137 +407,66 @@ export default {
         this.itemList = data.data
       })
     },
-    feedback() {
-      if (DocConfig.lang == 'en') {
-        window.open('https://github.com/star7th/showdoc/issues')
-      } else {
-        var msg =
-          '你正在使用免费开源版showdoc，如有问题或者建议，请到github提issue：'
-        msg +=
-          "<a href='https://github.com/star7th/showdoc/issues' target='_blank'>https://github.com/star7th/showdoc/issues</a><br>"
-        msg +=
-          '如果你觉得showdoc好用，不妨给开源项目点一个star。良好的关注度和参与度有助于开源项目的长远发展。'
-        this.$alert(msg, {
-          dangerouslyUseHTMLString: true
-        })
-      }
-    },
-    item_top_class(top) {
-      if (top) {
-        return 'el-icon-arrow-down'
-      }
-      return 'el-icon-arrow-up'
-    },
-
-    bind_item_even() {
-      // 这里偷个懒，直接用jquery来操作DOM。因为老版本的代码就是基于jquery的，所以复制过来稍微改下
-      $s(['static/jquery.min.js'], () => {
-        // 当鼠标放在项目上时将浮现设置和置顶图标
-        $('.item-thumbnail').mouseover(function() {
-          $(this)
-            .find('.item-setting')
-            .show()
-          // $(this).find(".item-top").show();
-          // $(this).find(".item-down").show();
-        })
-
-        // 当鼠标离开项目上时将隐藏设置和置顶图标
-        $('.item-thumbnail').mouseout(function() {
-          $(this)
-            .find('.item-setting')
-            .hide()
-          $(this)
-            .find('.item-top')
-            .hide()
-          $(this)
-            .find('.item-down')
-            .hide()
-        })
-      })
-    },
 
     // 进入项目设置页
-    click_item_setting(item_id) {
+    clickItemSetting(item_id) {
       this.$router.push({ path: '/item/setting/' + item_id })
     },
-    click_item_exit(item_id) {
-      var that = this
-      this.$confirm(that.$t('confirm_exit_item'), ' ', {
-        confirmButtonText: that.$t('confirm'),
-        cancelButtonText: that.$t('cancel'),
+    clickItemExit(item_id) {
+      this.$confirm(this.$t('confirm_exit_item'), ' ', {
+        confirmButtonText: this.$t('confirm'),
+        cancelButtonText: this.$t('cancel'),
         type: 'warning'
       }).then(() => {
-        var url = DocConfig.server + '/api/item/exitItem'
-        var params = new URLSearchParams()
-        params.append('item_id', item_id)
-        that.axios.post(url, params).then(function(response) {
-          if (response.data.error_code === 0) {
-            window.location.reload()
-          } else {
-            that.$alert(response.data.error_message)
-          }
+        this.request('/api/item/exitItem', {
+          item_id: item_id
+        }).then(data => {
+          window.location.reload()
         })
       })
     },
     logout() {
-      var that = this
-      var url = DocConfig.server + '/api/user/logout'
-      // 清空所有cookies
-      var keys = document.cookie.match(/[^ =;]+(?=\=)/g)
-      if (keys) {
-        for (var i = keys.length; i--; ) {
-          document.cookie = keys[i] + '=0;expires=' + new Date(0).toUTCString()
-        }
-      }
-
-      // 清空 localStorage
-      localStorage.clear()
-
-      var params = new URLSearchParams()
-      params.append('confirm', '1')
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          if (response.data.data.logout_redirect_uri) {
-            window.location.href = response.data.data.logout_redirect_uri
-          } else {
-            that.$router.push({
-              path: '/'
-            })
+      this.request('/api/user/logout', {
+        confirm: '1'
+      }).then(data => {
+        // 清空所有cookies
+        var keys = document.cookie.match(/[^ =;]+(?=\=)/g)
+        if (keys) {
+          for (var i = keys.length; i--; ) {
+            document.cookie =
+              keys[i] + '=0;expires=' + new Date(0).toUTCString()
           }
-        } else {
-          that.$alert(response.data.error_message)
         }
+        // 清空 localStorage
+        localStorage.clear()
+
+        this.$router.push({
+          path: '/'
+        })
       })
     },
 
-    user_info() {
-      var that = this
-      this.get_user_info(function(response) {
-        if (response.data.error_code === 0) {
-          if (response.data.data.groupid == 1) {
-            that.isAdmin = true
-          }
-        }
-      })
-    },
-    dropdown_callback(data) {
+    dropdownCallback(data) {
       if (data) {
         data()
       }
     },
 
-    sort_item(data) {
-      var that = this
-      var url = DocConfig.server + '/api/item/sort'
-      var params = new URLSearchParams()
-      params.append('data', JSON.stringify(data))
-      params.append('item_group_id', this.itemGroupId)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.get_item_list()
+    sortItem(data) {
+      this.request(
+        '/api/item/sort',
+        {
+          data: JSON.stringify(data),
+          item_group_id: this.itemGroupId
+        },
+        'post',
+        false
+      ).then(data => {
+        if (data.error_code === 0) {
+          this.getItemList()
           // window.location.reload();
         } else {
-          that.$alert(response.data.error_message, '', {
+          this.$alert(data.error_message, '', {
             callback: function() {
               window.location.reload()
             }
@@ -578,11 +480,41 @@ export default {
         let key = this.itemList[i]['item_id']
         data[key] = i + 1
       }
-      this.sort_item(data)
+      this.sortItem(data)
     },
-    script_cron() {
-      var url = DocConfig.server + '/api/ScriptCron/run'
-      this.axios.get(url)
+    toRunApi() {
+      window.open('https://www.showdoc.cc/runapi')
+    },
+    // 检测邮箱绑定情况
+    checkEmail() {
+      var that = this
+      getUserInfo(function(data) {
+        if (data.error_code === 0) {
+          that.username = data.data.username
+          if (data.data.groupid == 1) {
+            that.isAdmin = true
+          }
+          if (data.data.email_verify < 1) {
+            if (data.data.email.length > 0) {
+              that.$message({
+                showClose: true,
+                duration: 10000,
+                dangerouslyUseHTMLString: true,
+                message:
+                  '系统已发一封验证邮件到你的邮箱<br><br>请登录邮箱查看验证邮件<br><br>或者<a href="/user/setting">点此修改/重发邮件</a>'
+              })
+            } else {
+              that.$message({
+                showClose: true,
+                duration: 10000,
+                dangerouslyUseHTMLString: true,
+                message:
+                  '<a href="/user/setting">点此绑定邮箱，忘记密码时可通过邮箱重置密码</a>'
+              })
+            }
+          }
+        }
+      })
     },
     getItemGroupList() {
       this.request('/api/itemGroup/getList', {}).then(data => {
@@ -594,40 +526,39 @@ export default {
             this.itemGroupId = deaultItemGroupId
           }
         })
-        this.get_item_list()
+        this.getItemList()
       })
     },
     changeGroup() {
       localStorage.setItem('deaultItemGroupId', this.itemGroupId)
-      this.get_item_list()
+      this.getItemList()
     },
     toUserSettingLink() {
       this.$router.push({ path: '/user/setting' })
     },
+    toMessageLink() {
+      this.$router.push({ path: '/message/index' })
+    },
     toAttachmentLink() {
       this.$router.push({ path: '/attachment/index' })
     },
-    toMessageLink() {
-      this.$router.push({ path: '/message/index' })
+    toPushLink() {
+      window.open('https://push.showdoc.com.cn')
     }
   },
+  created() {
+    this.checkEmail()
+  },
   mounted() {
-    this.user_info()
-    this.lang = DocConfig.lang
-    this.script_cron()
     const deaultItemGroupId = localStorage.getItem('deaultItemGroupId')
     if (deaultItemGroupId === null) {
-      this.get_item_list()
+      this.getItemList()
       this.itemGroupId = '0'
     } else {
       this.itemGroupId = deaultItemGroupId
     }
+
     this.getItemGroupList()
-    this.get_user_info(response => {
-      if (response.data.error_code === 0) {
-        this.username = response.data.data.username
-      }
-    })
   },
   beforeDestroy() {
     this.$message.closeAll()

@@ -29,17 +29,17 @@
             ></el-input>
           </el-form-item>
 
-          <el-form-item label v-if="show_v_code">
+          <el-form-item label>
             <el-input
               type="text"
               auto-complete="off"
-              v-model="v_code"
+              v-model="captcha"
               :placeholder="$t('verification_code')"
             ></el-input>
             <img
               v-bind:src="v_code_img"
               class="v_code_img"
-              v-on:click="change_v_code_img"
+              v-on:click="changeVcodeImg"
             />
           </el-form-item>
 
@@ -65,6 +65,7 @@
 </template>
 
 <script>
+import { getUserInfo } from '@/models/user'
 export default {
   name: 'Login',
   components: {},
@@ -72,12 +73,12 @@ export default {
     return {
       username: '',
       password: '',
-      v_code: '',
-      v_code_img: DocConfig.server + '/api/common/verify',
-      show_v_code: false,
+      v_code_img: '',
       is_show_alert: false,
       oauth2_entrance_tips: '',
-      oauth2_url: DocConfig.server + '/api/ExtLogin/oauth2'
+      oauth2_url: DocConfig.server + '/api/ExtLogin/oauth2',
+      captchaId: 0,
+      captcha: ''
     }
   },
   methods: {
@@ -85,6 +86,7 @@ export default {
       if (this.is_show_alert) {
         return
       }
+
       // 对redirect参数进行校验，以防止钓鱼跳转
       if (this.$route.query.redirect) {
         let redirect = decodeURIComponent(this.$route.query.redirect)
@@ -97,57 +99,86 @@ export default {
           return false
         }
       }
-      // this.$message.success(this.username);
-      var that = this
-      var url = DocConfig.server + '/api/user/login'
-      var params = new URLSearchParams()
-      params.append('username', this.username)
-      params.append('password', this.password)
-      params.append('v_code', this.v_code)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          // that.$message.success("登录成功");
-          localStorage.setItem('userinfo', JSON.stringify(response.data.data))
-          let redirect = decodeURIComponent(
-            that.$route.query.redirect || '/item/index'
-          )
-          that.$router.replace({
-            path: redirect
-          })
+      this.request(
+        '/api/user/loginByVerify',
+        {
+          username: this.username,
+          password: this.password,
+          captcha: this.captcha,
+          captcha_id: this.captchaId,
+          redirect_login: false
+        },
+        'post',
+        false
+      ).then(data => {
+        if (data.error_code === 0) {
+          this.actionAfterLogin(data.data)
         } else {
-          if (
-            response.data.error_code === 10206 ||
-            response.data.error_code === 10210
-          ) {
-            that.show_v_code = true
-            that.change_v_code_img()
-          }
-          that.is_show_alert = true
-          that.$alert(response.data.error_message, {
-            callback: function() {
-              setTimeout(function() {
-                that.is_show_alert = false
+          this.changeVcodeImg()
+          this.is_show_alert = true
+          this.$alert(data.error_message, {
+            callback: () => {
+              setTimeout(() => {
+                this.is_show_alert = false
               }, 500)
             }
           })
         }
       })
     },
-    change_v_code_img() {
-      var rand = '&rand=' + Math.random()
-      this.v_code_img += rand
+    // 登录成功后，在这里执行一些动作
+    actionAfterLogin(userinfo) {
+      // 对redirect参数进行校验，以防止钓鱼跳转
+      if (this.$route.query.redirect) {
+        let redirect = decodeURIComponent(this.$route.query.redirect)
+        if (
+          redirect.search(/[^A-Za-z0-9/:\?\._\*\+\-]+.*/i) > -1 ||
+          redirect.indexOf('.') > -1 ||
+          redirect.indexOf('//') > -1
+        ) {
+          this.$alert('illegal redirect')
+          return false
+        }
+      }
+
+      localStorage.setItem('userinfo', JSON.stringify(userinfo))
+      let redirect = decodeURIComponent(
+        this.$route.query.redirect || '/item/index'
+      )
+      this.$router.replace({
+        path: redirect
+      })
+    },
+    changeVcodeImg() {
+      this.request('/api/common/createCaptcha', {}).then(data => {
+        const json = data.data
+        if (DocConfig.server.indexOf('?') > -1) {
+          this.v_code_img =
+            DocConfig.server +
+            '/api/common/showCaptcha&captcha_id=' +
+            json.captcha_id +
+            '&' +
+            Date.parse(new Date())
+        } else {
+          this.v_code_img =
+            DocConfig.server +
+            '/api/common/showCaptcha?captcha_id=' +
+            json.captcha_id +
+            '&' +
+            Date.parse(new Date())
+        }
+
+        this.captchaId = json.captcha_id
+      })
     },
     script_cron() {
-      var url = DocConfig.server + '/api/ScriptCron/run'
-      this.axios.get(url)
+      this.request('/api/ScriptCron/run', {}, 'get',false)
     },
     getOauth() {
-      var url = DocConfig.server + '/api/user/oauthInfo'
-      this.axios.get(url).then(response => {
-        if (response.data.error_code === 0) {
-          if (response.data.data.oauth2_open > 0) {
-            this.oauth2_entrance_tips = response.data.data.oauth2_entrance_tips
+      this.request('/api/user/oauthInfo', {}, 'get',false).then(data => {
+        if (data.error_code === 0) {
+          if (data.data.oauth2_open > 0) {
+            this.oauth2_entrance_tips = data.data.oauth2_entrance_tips
           }
         }
       })
@@ -167,8 +198,14 @@ export default {
         return false
       }
     }
-    this.get_user_info(function(response) {
-      if (response.data.error_code === 0) {
+    // 如果是从对话框中跳转到登录页面，可能遮罩层来不及关闭，导致登录页面无法点击。这个时候，写js去掉遮罩层。
+    const eles = document.getElementsByClassName('v-modal-leave')
+    for (let index = 0; index < eles.length; index++) {
+      const element = eles[index]
+      element.remove()
+    }
+    getUserInfo(function(data) {
+      if (data.error_code === 0) {
         let redirect = decodeURIComponent(
           that.$route.query.redirect || '/item/index'
         )
@@ -180,6 +217,7 @@ export default {
 
     this.script_cron()
     this.getOauth()
+    this.changeVcodeImg()
   },
   watch: {
     $route(to, from) {

@@ -1,36 +1,22 @@
 <!-- 更多模板 -->
 <template>
-  <div class="hello">
-    <Header></Header>
-
-    <el-container class="container-narrow">
-      <el-dialog
-        :title="$t('paste_insert_table')"
-        :modal="is_modal"
-        :visible.sync="dialogFormVisible"
-        :close-on-click-modal="false"
-      >
-        <el-form>
-          <el-input
-            type="textarea"
-            class="dialoContent"
-            :placeholder="$t('paste_insert_table_tips')"
-            :rows="10"
-            v-model="content"
-          ></el-input>
-        </el-form>
-        <div slot="footer" class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">{{
-            $t('cancel')
-          }}</el-button>
-          <el-button type="primary" @click="transform">{{
-            $t('confirm')
-          }}</el-button>
-        </div>
-      </el-dialog>
-    </el-container>
-    <Footer></Footer>
-    <div class></div>
+  <div class="">
+    <SDialog
+      v-if="dialogFormVisible"
+      :title="$t('paste_insert_table')"
+      :onCancel="callback"
+      :onOK="transform"
+    >
+      <el-form>
+        <el-input
+          type="textarea"
+          class="dialoContent"
+          :placeholder="$t('paste_insert_table_tips')"
+          :rows="10"
+          v-model="content"
+        ></el-input>
+      </el-form>
+    </SDialog>
   </div>
 </template>
 
@@ -40,15 +26,12 @@
 export default {
   props: {
     callback: '',
-    page_id: '',
-    is_modal: true,
-    is_show_recover_btn: true
+    is_modal: true
   },
   data() {
     return {
-      currentDate: new Date(),
       content: '',
-      dialogFormVisible: false
+      dialogFormVisible: true
     }
   },
   components: {},
@@ -67,7 +50,6 @@ export default {
         }
       }
       this.callback(sheet_str + '\n\n')
-      this.dialogFormVisible = false
     }
   },
   mounted() {}

@@ -1,18 +1,23 @@
 <template>
-  <div class="hello">
-    <Header></Header>
-
-    <el-container>
-      <el-card class="center-card">
-        <el-row>
-          <el-button type="text" class="add-cat" @click="add_cat()">{{
-            $t('add_cat')
-          }}</el-button>
-          <el-button type="text" class="goback-btn" @click="goback">{{
-            $t('goback')
-          }}</el-button>
-        </el-row>
-        <p class="tips" v-if="treeData.length > 1">{{ $t('cat_tips') }}</p>
+  <div >
+    <SDialog
+      :onCancel="callback"
+      :title="$t('add_cat')"
+      width="600px"
+      :onOK="callback"
+      :showCancel="false"
+      :btn1Text="$t('add_cat')"
+      btn1Icon="el-icon-plus"
+      :btn1Medthod="
+        () => {
+          addCat()
+        }
+      "
+    >
+      <div class="p-4">
+        <p class=" v3-color-aux v3-font-size-sm " v-if="treeData.length > 1">
+          {{ $t('cat_tips') }}
+        </p>
         <el-tree
           class="tree-node"
           :data="treeData"
@@ -22,80 +27,69 @@
           draggable
         >
           <span class="custom-tree-node" slot-scope="{ node, data }">
-            <span>{{ node.label }}</span>
+            <i class="mr-2 fas fa-folder"></i><span>{{ node.label }}</span>
             <span class="right-bar">
-              <el-button
-                type="text"
-                size="mini"
-                :title="$t('edit')"
-                class="el-icon-edit"
-                @click.stop="edit(node, data)"
-              ></el-button>
-              <el-button
-                type="text"
-                size="mini"
-                class="el-icon-plus"
-                :title="$t('add_cat')"
-                @click.stop="add_cat(node, data)"
-              ></el-button>
-              <el-button
-                type="text"
-                size="mini"
-                class="el-icon-document"
-                :title="$t('sort_pages')"
-                @click.stop="showSortPage(node, data)"
-              ></el-button>
-              <el-button
-                type="text"
-                size="mini"
-                class="el-icon-copy-document"
-                :title="$t('copy_or_mv_cat')"
-                @click.stop="copyCat(node, data)"
-              ></el-button>
-              <el-button
-                type="text"
-                size="mini"
-                class="el-icon-delete"
-                @click.stop="delete_cat(node, data)"
-              ></el-button>
+              <el-tooltip effect="dark" :content="$t('edit')" placement="top">
+                <el-button
+                  type="text"
+                  size="mini"
+                  :title="$t('edit')"
+                  class="el-icon-edit-outline"
+                  @click.stop="edit(node, data)"
+                ></el-button>
+              </el-tooltip>
+              <el-tooltip
+                effect="dark"
+                :content="$t('add_cat')"
+                placement="top"
+              >
+                <el-button
+                  type="text"
+                  size="mini"
+                  class="el-icon-plus"
+                  :title="$t('add_cat')"
+                  @click.stop="addCat(node, data)"
+                ></el-button>
+              </el-tooltip>
+              <el-tooltip
+                effect="dark"
+                :content="$t('sort_pages')"
+                placement="top"
+              >
+                <el-button
+                  type="text"
+                  size="mini"
+                  class="el-icon-document"
+                  :title="$t('sort_pages')"
+                  @click.stop="showSortPage(node, data)"
+                ></el-button>
+              </el-tooltip>
+              <el-tooltip
+                effect="dark"
+                :content="$t('copy_or_mv_cat')"
+                placement="top"
+              >
+                <el-button
+                  type="text"
+                  size="mini"
+                  class="el-icon-copy-document"
+                  :title="$t('copy_or_mv_cat')"
+                  @click.stop="copyCat(node, data)"
+                ></el-button>
+              </el-tooltip>
+              <el-tooltip effect="dark" :content="$t('delete')" placement="top">
+                <el-button
+                  type="text"
+                  size="mini"
+                  class="el-icon-delete"
+                  @click.stop="deleteCat(node, data)"
+                ></el-button>
+              </el-tooltip>
             </span>
           </span>
         </el-tree>
-      </el-card>
-      <el-dialog
-        :visible.sync="dialogFormVisible"
-        width="300px"
-        :close-on-click-modal="false"
-      >
-        <el-form>
-          <el-form-item :label="$t('cat_name') + ' : '">
-            <el-input
-              :placeholder="$t('input_cat_name')"
-              v-model="MyForm.cat_name"
-            ></el-input>
-          </el-form-item>
-          <el-form-item :label="$t('parent_cat_name') + ' : '">
-            <el-select v-model="MyForm.parent_cat_id" :placeholder="$t('none')">
-              <el-option
-                v-for="item in belong_to_catalogs"
-                :key="item.cat_id"
-                :label="item.cat_name"
-                :value="item.cat_id"
-              ></el-option>
-            </el-select>
-          </el-form-item>
-        </el-form>
-
-        <div slot="footer" class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">{{
-            $t('cancel')
-          }}</el-button>
-          <el-button type="primary" @click="MyFormSubmit">{{
-            $t('confirm')
-          }}</el-button>
-        </div>
-      </el-dialog>
-    </el-container>
+      </div>
+    </SDialog>
 
     <SortPage
       v-if="sortPageVisiable"
@@ -116,7 +110,37 @@
       :callback="copyCallback"
     ></Copy>
 
-    <Footer></Footer>
+    <SDialog
+      v-if="dialogFormVisible"
+      :title="$t('add_cat')"
+      :showCancel="false"
+      :onCancel="
+        () => {
+          dialogFormVisible = false
+        }
+      "
+      :onOK="MyFormSubmit"
+      width="300px"
+    >
+      <el-form>
+        <el-form-item :label="$t('cat_name') + ' : '">
+          <el-input
+            :placeholder="$t('input_cat_name')"
+            v-model="MyForm.cat_name"
+          ></el-input>
+        </el-form-item>
+        <el-form-item :label="$t('parent_cat_name') + ' : '">
+          <el-select filterable v-model="MyForm.parent_cat_id" :placeholder="$t('none')">
+            <el-option
+              v-for="item in belong_to_catalogs"
+              :key="item.cat_id"
+              :label="item.cat_name"
+              :value="item.cat_id"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+    </SDialog>
   </div>
 </template>
 
@@ -128,6 +152,10 @@ export default {
   components: {
     SortPage,
     Copy
+  },
+  props: {
+    callback: () => {},
+    item_id: 0
   },
   data() {
     return {
@@ -145,7 +173,7 @@ export default {
         children: 'children',
         label: 'label'
       },
-      item_id: '',
+
       curl_cat_id: '',
       sortPageVisiable: false
     }
@@ -186,14 +214,13 @@ export default {
     }
   },
   methods: {
-    get_catalog() {
-      var that = this
+    getCatalog() {
       this.request('/api/catalog/catListGroup', {
-        item_id: this.$route.params.item_id
+        item_id: this.item_id
       }).then(data => {
         var Info = data.data
-        that.catalogs = Info
-        that.treeData = []
+        this.catalogs = Info
+        this.treeData = []
         var duang = function(Info) {
           var treeData = []
           for (var i = 0; i < Info.length; i++) {
@@ -207,20 +234,19 @@ export default {
           }
           return treeData
         }
-        that.treeData = duang(Info)
+        this.treeData = duang(Info)
       })
     },
     MyFormSubmit() {
-      var that = this
       this.request('/api/catalog/save', {
-        item_id: this.$route.params.item_id,
+        item_id: this.item_id,
         cat_id: this.MyForm.cat_id,
         parent_cat_id: this.MyForm.parent_cat_id,
         cat_name: this.MyForm.cat_name
       }).then(data => {
-        that.dialogFormVisible = false
-        that.get_catalog()
-        that.MyForm = []
+        this.dialogFormVisible = false
+        this.getCatalog()
+        this.MyForm = []
       })
     },
     edit(node, data) {
@@ -233,20 +259,18 @@ export default {
       this.dialogFormVisible = true
     },
 
-    delete_cat(node, data) {
-      var that = this
+    deleteCat(node, data) {
       var cat_id = data.id
-
-      this.$confirm(that.$t('confirm_cat_delete'), ' ', {
-        confirmButtonText: that.$t('confirm'),
-        cancelButtonText: that.$t('cancel'),
+      this.$confirm(this.$t('confirm_cat_delete'), ' ', {
+        confirmButtonText: this.$t('confirm'),
+        cancelButtonText: this.$t('cancel'),
         type: 'warning'
       }).then(() => {
         this.request('/api/catalog/delete', {
-          item_id: this.$route.params.item_id,
+          item_id: this.item_id,
           cat_id: cat_id
         }).then(data => {
-          this.get_catalog()
+          this.getCatalog()
         })
       })
     },
@@ -258,7 +282,7 @@ export default {
         s_number: ''
       }
     },
-    add_cat(node, data) {
+    addCat(node, data) {
       if (node && data.id) {
         this.MyForm = {
           cat_id: '',
@@ -272,13 +296,13 @@ export default {
       this.dialogFormVisible = true
     },
     goback() {
-      var url = '/' + this.$route.params.item_id
+      var url = '/' + this.item_id
       this.$router.push({ path: url })
     },
     handleDragEnd(node1, node2, position, evt) {
       let treeData2 = this.dimensionReduction(this.treeData)
       this.request('/api/catalog/batUpdate', {
-        item_id: this.$route.params.item_id,
+        item_id: this.item_id,
         cats: JSON.stringify(treeData2)
       })
     },
@@ -317,13 +341,12 @@ export default {
     },
     copyCallback() {
       this.copyFormVisible = false
-      this.get_catalog()
+      this.getCatalog()
     }
   },
 
   mounted() {
-    this.get_catalog()
-    this.item_id = this.$route.params.item_id
+    this.getCatalog()
   },
 
   beforeDestroy() {}
@@ -332,54 +355,26 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-.hello {
-  text-align: left;
-}
-
-.add-cat {
-  margin-left: 10px;
-}
-
-.center-card {
-  text-align: left;
-  width: 600px;
-  min-height: 500px;
-  max-height: 90%;
-  overflow-y: auto;
-}
-
-.goback-btn {
-  z-index: 999;
-  margin-left: 400px;
-}
-
-.cat-box {
-  background-color: rgb(250, 250, 250);
-  width: 100%;
-  height: 40px;
-  margin-bottom: 10px;
-  border: 1px solid #d9d9d9;
-  border-radius: 2px;
-}
-.cat-name {
-  line-height: 40px;
-  margin-left: 20px;
-  color: #262626;
-}
 .tree-node {
-  margin-top: 20px;
+  margin-top: 10px;
+  background-color: #f9f9f9;
 }
 .custom-tree-node {
   width: 100%;
+  margin-top: 5px;
 }
 .right-bar {
   float: right;
   margin-right: 20px;
 }
+</style>
 
-.tips {
-  margin-left: 10px;
-  color: #9ea1a6;
-  font-size: 11px;
+<style>
+.tree-node .el-tree-node__content {
+  height: 60px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.tree-node .el-tree-node__content:hover {
+  background-color: white;
 }
 </style>

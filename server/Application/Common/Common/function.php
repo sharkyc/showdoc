@@ -108,7 +108,7 @@ function output_word($data, $fileName = '')
     $data = str_replace("<thead>\n<tr>", "<thead><tr style='background-color: rgb(0, 136, 204); color: rgb(255, 255, 255);'>", $data);
     $data = str_replace("<pre><code", "<table width='100%' class='codestyle'><pre><code", $data);
     $data = str_replace("</code></pre>", "</code></pre></table>", $data);
-    $data = str_replace("<img ", "<img width=500 ", $data);
+    $data = str_replace("<img ", "<img style='max-width:500' ", $data);
     $len = strlen($data);
     fwrite($filepath, $data);
     header("Content-type: application/octet-stream");
@@ -236,6 +236,12 @@ function env($name, $default_value = false)
     return getenv($name) ? getenv($name) : $default_value;
 }
 
+// 获取加密密码串
+function encry_password($password, $salt = '')
+{
+    return md5(base64_encode(md5($password)) . '576hbgh6' . $salt);
+}
+
 // 获取随机字符串
 function get_rand_str($len = 32)
 {
@@ -257,4 +263,15 @@ function date_time($time = 0)
 {
     if (!$time) $time = time();
     return date("Y-m-d H:i:s", $time);
+}
+
+// 获取系统语言
+function get_lang($path="../web/index.html")
+{
+    $text = file_get_contents($path);
+    if( strstr($text , 'zh') ){
+        return 'zh-cn' ;
+    }else{
+        return 'en';
+    }
 }

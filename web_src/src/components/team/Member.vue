@@ -2,15 +2,22 @@
   <div class="hello">
     <Header></Header>
 
-    <el-container>
-      <el-card class="center-card">
-        <el-button type="text" class="goback-btn" @click="goback"
-          ><i class="el-icon-back"></i>&nbsp;{{ $t('goback') }}</el-button
+    <SDialog
+      :title="$t('manage_members')"
+      :btn1Text="team_manage ? $t('add_member') : ''"
+      btn1Icon="el-icon-plus"
+      :btn1Medthod="addTeamMember"
+      :onCancel="callback"
+      :showCancel="false"
+      :showOk="false"
+      :onOK="callback"
+    >
+      <div>
+        <el-table
+          align="left"
+          :data="list"
+          :empty-text="$t('empty_team_member_tips')"
         >
-        <el-button type="text" class="add-cat" @click="addTeamMember"
-          ><i class="el-icon-plus"></i>&nbsp;{{ $t('add_member') }}</el-button
-        >
-        <el-table align="left" :data="list" height="400" style="width: 100%">
           <el-table-column
             prop="member_username"
             :label="$t('member_username')"
@@ -30,13 +37,13 @@
           <el-table-column prop="name" :label="$t('name')"></el-table-column>
           <el-table-column
             prop="addtime"
-            width="160"
             :label="$t('addtime')"
           ></el-table-column>
 
           <el-table-column prop :label="$t('operation')">
             <template slot-scope="scope">
               <el-button
+                v-if="team_manage"
                 @click="deleteTeamMember(scope.row.id)"
                 type="text"
                 size="small"
@@ -45,82 +52,85 @@
             </template>
           </el-table-column>
         </el-table>
-      </el-card>
+      </div>
+    </SDialog>
 
-      <el-dialog
-        :visible.sync="dialogFormVisible"
-        width="300px"
-        :close-on-click-modal="false"
-      >
-        <el-form>
-          <el-form-item :label="$t('member_username') + ':'">
-            <el-select
-              v-model="MyForm.member_username"
-              multiple
-              filterable
-              reserve-keyword
-              placeholder
-              :loading="loading"
-            >
-              <el-option
-                v-for="item in memberOptions"
-                :key="item.value"
-                :label="item.label"
-                :value="item.value"
-              ></el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-radio v-model="MyForm.team_member_group_id" label="1">{{
-              $t('ordinary_member')
-            }}</el-radio>
-            <el-radio v-model="MyForm.team_member_group_id" label="2">{{
-              $t('team_admin')
-            }}</el-radio>
-          </el-form-item>
-        </el-form>
-
-        <div slot="footer" class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">{{
-            $t('cancel')
-          }}</el-button>
-          <el-button type="primary" @click="MyFormSubmit">{{
-            $t('confirm')
-          }}</el-button>
-        </div>
-      </el-dialog>
-    </el-container>
-
-    <Footer></Footer>
+    <SDialog
+      v-if="dialogFormVisible"
+      :title="$t('add_member')"
+      :onCancel="
+        () => {
+          dialogFormVisible = false
+        }
+      "
+      :onOK="myFormSubmit"
+      width="400px"
+    >
+      <el-form>
+        <el-form-item :label="$t('member_username') + ':'">
+          <el-select
+            v-model="MyForm.member_username"
+            multiple
+            filterable
+            reserve-keyword
+            placeholder
+          >
+            <el-option
+              v-for="item in memberOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            ></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item class="text-center">
+          <el-radio v-model="MyForm.team_member_group_id" label="1">{{
+            $t('ordinary_member')
+          }}</el-radio>
+          <el-radio v-model="MyForm.team_member_group_id" label="2">{{
+            $t('team_admin')
+          }}</el-radio>
+        </el-form-item>
+      </el-form>
+    </SDialog>
   </div>
 </template>
 
 <script>
 export default {
   components: {},
+  props: {
+    callback: {
+      type: Function,
+      required: false,
+      default: () => {}
+    },
+    team_id: {
+      type: Number,
+      required: false,
+      default: 0
+    },
+    team_manage: {
+      type: Number || String,
+      required: false,
+      default: 1
+    }
+  },
   data() {
     return {
       MyForm: {},
       list: [],
       dialogFormVisible: false,
-      team_id: '',
+      myAllList: [], // 我之前添加过的成员列表
       memberOptions: []
     }
   },
   methods: {
     geList() {
-      var that = this
-      var url = DocConfig.server + '/api/teamMember/getList'
-      var params = new URLSearchParams()
-      params.append('team_id', this.team_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          that.list = Info
-          that.getAllUser()
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamMember/getList', {
+        team_id: this.team_id
+      }).then(data => {
+        this.list = data.data
       })
     },
     reSetMyForm() {
@@ -130,43 +140,44 @@ export default {
         team_member_group_id: '1'
       }
     },
-    MyFormSubmit() {
-      var that = this
-      var url = DocConfig.server + '/api/teamMember/save'
-
-      var params = new URLSearchParams()
-      params.append('team_id', this.team_id)
-      params.append('member_username', this.MyForm.member_username)
-      params.append('team_member_group_id', this.MyForm.team_member_group_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.dialogFormVisible = false
-          that.geList()
-          that.reSetMyForm()
+    myFormSubmit() {
+      this.request(
+        '/api/teamMember/save',
+        {
+          team_id: this.team_id,
+          member_username: this.MyForm.member_username,
+          team_member_group_id: this.MyForm.team_member_group_id
+        },
+        'post',
+        false
+      ).then(data => {
+        if (data.error_code === 0) {
+          this.dialogFormVisible = false
+          this.geList()
+          this.reSetMyForm()
+        } else if (data.error_code === 10310) {
+          this.$alert(
+            '你添加的协作成员数量超出限制(所有团队成员以及所有项目的单独成员加起来后去重，就是协作成员数)。你可以开通高级版以获取更多配额。<a href="/prices" target="_blank" >点此查看不同账户类型的额度限制差异</a>，也可以<a href="/user/setting" target="_blank" >点此去升级账户类型</a>。<br>如果你现在不方便处理，你可以等会再自行回到项目列表页，点击右上角的用户中心去升级。',
+            {
+              dangerouslyUseHTMLString: true
+            }
+          )
         } else {
-          that.$alert(response.data.error_message)
+          this.$alert(data.error_message)
         }
       })
     },
 
     deleteTeamMember(id) {
-      var that = this
-      var url = DocConfig.server + '/api/teamMember/delete'
-
-      this.$confirm(that.$t('confirm_delete'), ' ', {
-        confirmButtonText: that.$t('confirm'),
-        cancelButtonText: that.$t('cancel'),
+      this.$confirm(this.$t('confirm_delete'), ' ', {
+        confirmButtonText: this.$t('confirm'),
+        cancelButtonText: this.$t('cancel'),
         type: 'warning'
       }).then(() => {
-        var params = new URLSearchParams()
-        params.append('id', id)
-
-        that.axios.post(url, params).then(function(response) {
-          if (response.data.error_code === 0) {
-            that.geList()
-          } else {
-            that.$alert(response.data.error_message)
-          }
+        this.request('/api/teamMember/delete', {
+          id: id
+        }).then(data => {
+          this.geList()
         })
       })
     },
@@ -177,38 +188,40 @@ export default {
     goback() {
       this.$router.push({ path: '/team/index' })
     },
+    // 获取选择之前添加过的成员名列表
+    getMyAllList() {
+      this.request('/api/member/getMyAllList', {}).then(data => {
+        this.myAllList = data.data
+      })
+    },
+    dropdownCallback(data) {
+      this.MyForm.member_username = data
+    },
     getAllUser() {
-      var that = this
-      var url = DocConfig.server + '/api/user/allUser'
-      var params = new URLSearchParams()
-      params.append('username', '')
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          var newInfo = []
-          // 过滤掉已经是成员的用户
-          for (var i = 0; i < Info.length; i++) {
-            let isMember = that.isMember(Info[i]['value'])
-            if (!isMember) {
-              newInfo.push(Info[i])
-            }
+      this.request('/api/user/allUser', {
+        username: ''
+      }).then(data => {
+        var Info = data.data
+        var newInfo = []
+        // 过滤掉已经是成员的用户
+        for (var i = 0; i < Info.length; i++) {
+          let isMember = this.isMember(Info[i]['value'])
+          if (!isMember) {
+            newInfo.push(Info[i])
           }
-          that.memberOptions = []
-          for (let index = 0; index < newInfo.length; index++) {
-            that.memberOptions.push({
-              value: newInfo[index].username,
-              label: newInfo[index].name
-                ? newInfo[index].username + '(' + newInfo[index].name + ')'
-                : newInfo[index].username,
-              key: newInfo[index].username
-            })
-          }
-        } else {
-          that.$alert(response.data.error_message)
+        }
+        this.memberOptions = []
+        for (let index = 0; index < newInfo.length; index++) {
+          this.memberOptions.push({
+            value: newInfo[index].username,
+            label: newInfo[index].name
+              ? newInfo[index].username + '(' + newInfo[index].name + ')'
+              : newInfo[index].username,
+            key: newInfo[index].username
+          })
         }
       })
     },
-
     // 判断某个用户是否已经是会员
     isMember(username) {
       let list = this.list
@@ -222,10 +235,9 @@ export default {
   },
 
   mounted() {
-    this.team_id = this.$route.params.team_id
+    this.reSetMyForm()
     this.geList()
     this.getAllUser()
-    this.reSetMyForm()
   }
 }
 </script>

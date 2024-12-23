@@ -21,13 +21,22 @@ class AdminSettingController extends BaseController
         $show_watermark = intval(I("show_watermark"));
         $beian = I("beian");
         $site_url = I("site_url");
+        $open_api_key = I("open_api_key");
+        $open_api_host = I("open_api_host");
+        $ai_model_name = I("ai_model_name");
+        $force_login = intval(I("force_login"));
+
         D("Options")->set("history_version_count", $history_version_count);
         D("Options")->set("register_open", $register_open);
         D("Options")->set("home_page", $home_page);
         D("Options")->set("home_item", $home_item);
         D("Options")->set("beian", $beian);
         D("Options")->set("site_url", $site_url);
+        D("Options")->set("open_api_key", $open_api_key);
+        D("Options")->set("open_api_host", $open_api_host);
+        D("Options")->set("ai_model_name", $ai_model_name);
         D("Options")->set("show_watermark", $show_watermark);
+        D("Options")->set("force_login", $force_login);
 
         if ($oss_open) {
             $this->checkComposerPHPVersion();
@@ -52,7 +61,10 @@ class AdminSettingController extends BaseController
         $home_item = D("Options")->get("home_item");
         $beian = D("Options")->get("beian");
         $site_url = D("Options")->get("site_url");
-        $ldap_form = json_decode($ldap_form, 1);
+        $open_api_key = D("Options")->get("open_api_key");
+        $open_api_host = D("Options")->get("open_api_host");
+        $ai_model_name = D("Options")->get("ai_model_name");
+        $force_login = D("Options")->get("force_login");
         $oss_setting = json_decode($oss_setting, 1);
 
         //如果强等于false，那就是尚未有数据。关闭注册应该是有数据且数据为字符串0
@@ -69,6 +81,10 @@ class AdminSettingController extends BaseController
                 "beian" => $beian,
                 "site_url" => $site_url,
                 "oss_setting" => $oss_setting,
+                "open_api_key" => $open_api_key,
+                "open_api_host" => $open_api_host,
+                "ai_model_name" => $ai_model_name,
+                "force_login" => $force_login,
             );
             $this->sendResult($array);
         }
@@ -142,19 +158,14 @@ class AdminSettingController extends BaseController
         $ldap_form = D("Options")->get("ldap_form");
         $ldap_form = json_decode($ldap_form, 1);
 
-        //如果强等于false，那就是尚未有数据。关闭注册应该是有数据且数据为字符串0
-        if ($register_open === false) {
-            $this->sendResult(array());
-        } else {
-            if ($ldap_form && $ldap_form['host'] && !$ldap_form['search_filter']) {
-                $ldap_form['search_filter'] = '(cn=*)';
-            }
-            $array = array(
-                "ldap_open" => $ldap_open,
-                "ldap_form" => $ldap_form,
-            );
-            $this->sendResult($array);
+        if ($ldap_form && $ldap_form['host'] && !$ldap_form['search_filter']) {
+            $ldap_form['search_filter'] = '(cn=*)';
         }
+        $array = array(
+            "ldap_open" => $ldap_open,
+            "ldap_form" => $ldap_form,
+        );
+        $this->sendResult($array);
     }
 
     //保存Oauth2配置
@@ -180,16 +191,11 @@ class AdminSettingController extends BaseController
         $oauth2_form = htmlspecialchars_decode($oauth2_form);
         $oauth2_form = json_decode($oauth2_form, 1);
 
-        //如果强等于false，那就是尚未有数据。关闭注册应该是有数据且数据为字符串0
-        if ($register_open === false) {
-            $this->sendResult(array());
-        } else {
-            $array = array(
-                "oauth2_open" => $oauth2_open,
-                "oauth2_form" => $oauth2_form,
-            );
-            $this->sendResult($array);
-        }
+        $array = array(
+            "oauth2_open" => $oauth2_open,
+            "oauth2_form" => $oauth2_form,
+        );
+        $this->sendResult($array);
     }
 
     public function getLoginSecretKey()

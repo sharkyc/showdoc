@@ -14,7 +14,7 @@ class FromCommentsController extends BaseController
     {
         //return ;
         header('Content-Type:text/html;charset=utf-8 ');
-        $content = I("content");
+        $content = htmlspecialchars_decode(I("content", null)); // 不进行过滤,并且进行html反转义
         $api_key = I("api_key");
         $api_token = I("api_token");
 
@@ -51,7 +51,7 @@ class FromCommentsController extends BaseController
             $page_content = $convert->runapiToMd($page_content);
         }
         $page_title = $array['title'];
-        $page_content = $page_content;
+        $page_content = htmlspecialchars($page_content);
         $cat_name = $array['cat_name'];
         $s_number = $array['s_number'] ? $array['s_number'] : 99;
         $page_id = D("Page")->update_by_title($item_id, $page_title, $page_content, $cat_name, $s_number);
@@ -204,17 +204,38 @@ class FromCommentsController extends BaseController
                 }
             }
         }
-
+        // 
         if ($array['param']) {
-            foreach ($array['param'] as $key => $value) {
-                // |参数名|是否必选|类型|说明
-                $content_array['request']['params']['formdata'][] = array(
-                    "name" => $value[0],
-                    "require" => ($value[1] == '必选') ? '1' : '0',
-                    "type" => $value[2],
-                    "value" => '',
-                    "remark" => $value[3],
-                );
+            if (strtolower($array['method']) == 'get') {
+                $query_str = '';
+                foreach ($array['param'] as $key => $value) {
+                    // |参数名|是否必选|类型|说明
+                    $content_array['request']['query'][] = array(
+                        "name" => $value[0],
+                        "require" => ($value[1] == '必选') ? '1' : '0',
+                        "type" => $value[2],
+                        "value" => '',
+                        "remark" => $value[3],
+                    );
+                    $query_str .= $value[0] . "=" . '&';
+                }
+                // 为了兼容，还要把query参数追加到url里去
+                if (strstr($content_array['info']['url'], "?")) {
+                    $content_array['info']['url'] .= "&" . $query_str;
+                } else {
+                    $content_array['info']['url'] .= "?" . $query_str;
+                }
+            } else {
+                foreach ($array['param'] as $key => $value) {
+                    // |参数名|是否必选|类型|说明
+                    $content_array['request']['params']['formdata'][] = array(
+                        "name" => $value[0],
+                        "require" => ($value[1] == '必选') ? '1' : '0',
+                        "type" => $value[2],
+                        "value" => '',
+                        "remark" => $value[3],
+                    );
+                }
             }
         }
 

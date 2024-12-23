@@ -3,13 +3,14 @@
 // 定义一个html反转义的函数
 const unescapeHTML = str =>
   str.replace(
-    /&amp;|&lt;|&gt;|&#39;|&quot;/g,
+    /&amp;|&lt;|&gt;|&#39;|&#039;|&quot;/g,
     tag =>
       ({
         '&amp;': '&',
         '&lt;': '<',
         '&gt;': '>',
         '&#39;': "'",
+        '&#039;': "'",
         '&quot;': '"'
       }[tag] || tag)
   )
@@ -152,7 +153,7 @@ const rederPageContent = (page_content, globalParams = {}) => {
     newContent += `
 ##### Header
 
-|header|示例值|必选|类型|说明|
+|字段名|示例值|必选|类型|说明|
 |:-----  |:-----|-----|
 `
     const headers = obj.request.headers

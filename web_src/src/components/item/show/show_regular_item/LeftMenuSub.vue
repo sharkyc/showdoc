@@ -5,9 +5,10 @@
         v-for="catalog2 in catalog"
         :index="catalog2.cat_id"
         :key="catalog2.cat_id"
+        class="submenu"
       >
         <template slot="title">
-          <i class="el-icon-folder"></i>
+          <i class="far mr-1 fa-folder-closed"></i>
           {{ catalog2.cat_name }}
         </template>
         <!-- 三级目录的页面 -->
@@ -17,7 +18,7 @@
             :index="page3.page_id"
             :key="page3.page_id"
           >
-            <i class="el-icon-document"></i>
+            <i class="far mr-1 fa-file-alt"></i>
             <a
               :href="randerUrl(page3.page_id)"
               @click.prevent="() => {}"
@@ -56,7 +57,7 @@ export default {
       var domain = this.item_info.item_domain
         ? this.item_info.item_domain
         : this.item_info.item_id
-      return '#/' + domain + '/' + page_id
+      return '/' + domain + '/' + page_id
     }
   },
   mounted() {
@@ -83,6 +84,11 @@ export default {
   height: 46px;
   line-height: 46px;
 }
+.submenu .el-submenu__title:hover,
+.submenu .el-menu-item:hover {
+  background: #ffffff !important;
+  border-radius: 4px;
+}
 .el-submenu .el-menu-item {
   height: 40px;
   line-height: 40px;
@@ -103,6 +109,7 @@ export default {
   margin-right: 10px;
   margin-bottom: 4px;
 }
+
 .el-menu-item:not(.is-active) a {
   color: #303133;
 }

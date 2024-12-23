@@ -1,14 +1,14 @@
 <!-- 附件 -->
 <template>
-  <div class="hello">
-    <Header></Header>
-
-    <el-dialog
+  <div class="">
+    <SDialog
       :title="$t('item_change_log_dialog_title')"
-      :visible.sync="dialogTableVisible"
-      :close-on-click-modal="false"
-      :before-close="callback"
+      :onCancel="callback"
+      :showCancel="false"
+      :showOk="false"
+      :onOK="callback"
       width="70%"
+      top="5vh"
     >
       <el-table :data="dataList">
         <el-table-column
@@ -18,22 +18,22 @@
         ></el-table-column>
         <el-table-column property="oper" :label="$t('oper')"></el-table-column>
         <el-table-column
-          v-if="lang == 'zh-cn'"
+          v-if="$lang == 'zh-cn'"
           property="op_action_type_desc"
           :label="$t('op_action_type_desc')"
         ></el-table-column>
         <el-table-column
-          v-if="lang == 'zh-cn'"
+          v-if="$lang == 'zh-cn'"
           property="op_object_type_desc"
           :label="$t('op_object_type_desc')"
         ></el-table-column>
         <el-table-column
-          v-if="lang == 'en'"
+          v-if="$lang == 'en'"
           property="op_action_type"
           :label="$t('op_action_type_desc')"
         ></el-table-column>
         <el-table-column
-          v-if="lang == 'en'"
+          v-if="$lang == 'en'"
           property="op_object_type"
           :label="$t('op_object_type_desc')"
         ></el-table-column>
@@ -66,7 +66,7 @@
           :total="total"
         ></el-pagination>
       </div>
-    </el-dialog>
+    </SDialog>
   </div>
 </template>
 
@@ -85,8 +85,7 @@ export default {
       count: 10,
       dataList: [],
       total: 0,
-      dialogTableVisible: true,
-      lang: ''
+      dialogTableVisible: true
     }
   },
   components: {},
@@ -117,8 +116,6 @@ export default {
   },
   mounted() {
     this.getList()
-    this.lang = DocConfig.lang
-    // this.lang = 'en'
   }
 }
 </script>

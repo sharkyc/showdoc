@@ -27,6 +27,11 @@ class PageController extends BaseController
         if ($page) {
             //unset($page['page_content']);
             $page['addtime'] = date("Y-m-d H:i:s", $page['addtime']);
+            if ($page['page_addtime'] > 0) {
+                $page['page_addtime'] = date("Y-m-d H:i:s", $page['page_addtime']);
+            } else {
+                $page['page_addtime'] = $page['addtime'];
+            }
             //判断是否包含附件信息
             $page['attachment_count'] = D("FilePage")->where("page_id = '$page_id' ")->count();
 
@@ -73,19 +78,17 @@ class PageController extends BaseController
         $is_urlencode = I("is_urlencode/d") ? I("is_urlencode/d") : 0; //页面内容是否经过了转义
         $page_title = I("page_title") ? I("page_title") : L("default_title");
         $page_comments = I("page_comments") ? I("page_comments") : '';
-        $page_content = I("post.page_content");
+        $page_content = I("post.page_content", "", ""); // 不进行htmlspecialchars过滤，后面再手工过滤
         $cat_id = I("cat_id/d") ? I("cat_id/d") : 0;
         $item_id = I("item_id/d") ? I("item_id/d") : 0;
         $s_number = I("s_number/d") ? I("s_number/d") : '';
         $is_notify = I("is_notify/d") ? I("is_notify/d") : 0;
         $notify_content = I("notify_content") ? I("notify_content") : '';
+        $ext_info = I("ext_info") ? I("ext_info") : '';
 
 
         $login_user = $this->checkLogin();
-        if (!$this->checkItemEdit($login_user['uid'], $item_id)) {
-            $this->sendError(10103);
-            return;
-        }
+
         if (!$page_content) {
             $this->sendError(10103, "不允许保存空内容，请随便写点什么");
             return;
@@ -93,6 +96,15 @@ class PageController extends BaseController
         if ($is_urlencode) {
             $page_content = urldecode($page_content);
         }
+        // htmlspecialchars过滤
+        $page_content = htmlspecialchars($page_content);
+
+        if (!$this->checkItemEdit($login_user['uid'], $item_id)) {
+            $this->sendError(10103);
+            return;
+        }
+        $data = array();
+
         $data['page_title'] = $page_title;
         $data['page_content'] = $page_content;
         $data['page_comments'] = $page_comments;
@@ -100,10 +112,27 @@ class PageController extends BaseController
         $data['item_id'] = $item_id;
         $data['cat_id'] = $cat_id;
         $data['addtime'] = time();
+        $data['page_addtime'] = time();
         $data['author_uid'] = $login_user['uid'];
         $data['author_username'] = $login_user['username'];
+        $data['ext_info'] = $ext_info;
 
-
+        $item_array = D("Item")->where(" item_id = '$item_id' ")->find();
+        
+        // 这里插入一段逻辑，对于runapi项目类型，填充ext_info字段
+        if(!$data['ext_info'] && $item_array['item_type'] == 3){
+            $content_json = htmlspecialchars_decode($page_content);
+            $content = json_decode($content_json, true);
+            if ($content && $content['info'] && $content['info']['url']) {
+                $ext_info_array = array(
+                    "page_type"=>"api",
+                    "api_info"=>array(
+                        "method"=>"post",
+                    )
+                    );
+                $data['ext_info'] = json_encode($ext_info_array);
+            }
+        }
 
         if ($page_id > 0) {
 
@@ -131,9 +160,13 @@ class PageController extends BaseController
                 'addtime' => $page['addtime'],
                 'author_uid' => $page['author_uid'],
                 'author_username' => $page['author_username'],
+                'ext_info' => $page['ext_info'],
             );
             D("PageHistory")->add($insert_history);
 
+            if ($page['page_addtime'] > 0) {
+                $data['page_addtime'] = $page['page_addtime'];
+            }
             $ret = D("Page")->where(" page_id = '$page_id' ")->save($data);
 
             D("ItemChangeLog")->addLog($login_user['uid'], $item_id, 'update', 'page', $page_id, $page_title);
@@ -206,6 +239,7 @@ class PageController extends BaseController
                 $page_content = uncompress_string($value['page_content']);
                 if (!empty($page_content)) {
                     $value['page_content'] = htmlspecialchars_decode($page_content);
+                    $value['page_content'] = htmlspecialchars($value['page_content'], ENT_NOQUOTES); // 不编码任何引号,以兼容json.同时转义其他字符串，以免xss
                 }
             }
 

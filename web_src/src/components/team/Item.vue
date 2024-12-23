@@ -1,16 +1,23 @@
 <template>
   <div class="hello">
     <Header></Header>
-
-    <el-container>
-      <el-card class="center-card">
-        <el-button type="text" class="goback-btn" @click="goback"
-          ><i class="el-icon-back"></i>&nbsp;{{ $t('goback') }}</el-button
+    <SDialog
+      :title="$t('item_manage')"
+      :btn1Text="team_manage ? $t('binding_item') : ''"
+      btn1Icon="el-icon-plus"
+      :btn1Medthod="addTeamItem"
+      :onCancel="callback"
+      :showCancel="false"
+      :showOk="false"
+      :onOK="callback"
+      width="40%"
+    >
+      <div>
+        <el-table
+          align="left"
+          :data="list"
+          :empty-text="$t('empty_team_item_tips')"
         >
-        <el-button type="text" class="add-cat" @click="addTeamItem"
-          ><i class="el-icon-plus"></i>&nbsp;{{ $t('binding_item') }}</el-button
-        >
-        <el-table align="left" :data="list" height="400" style="width: 100%">
           <el-table-column
             prop="item_name"
             :label="$t('item_name')"
@@ -27,6 +34,7 @@
               }}</router-link>
 
               <el-button
+                v-if="team_manage"
                 @click="getTeamItemMember(scope.row.item_id)"
                 type="text"
                 size="small"
@@ -34,6 +42,7 @@
               >
 
               <el-button
+                v-if="team_manage"
                 @click="deleteTeamItem(scope.row.id)"
                 type="text"
                 size="small"
@@ -42,124 +51,147 @@
             </template>
           </el-table-column>
         </el-table>
-      </el-card>
+      </div>
+    </SDialog>
 
-      <el-dialog
-        :visible.sync="dialogFormVisible"
-        width="300px"
-        :close-on-click-modal="false"
-      >
-        <el-form>
-          <el-select
-            multiple
-            v-model="MyForm.item_id"
-            :placeholder="$t('please_choose')"
-          >
-            <el-option
-              v-for="item in itemList"
-              :key="item.item_id"
-              :label="item.item_name"
-              :value="item.item_id"
-            ></el-option>
-          </el-select>
-        </el-form>
-        <br />
-        <router-link to="/item/index" target="_blank">{{
-          $t('go_to_new_an_item')
-        }}</router-link>
-        <div slot="footer" class="dialog-footer">
-          <el-button @click="dialogFormVisible = false">{{
-            $t('cancel')
-          }}</el-button>
-          <el-button type="primary" @click="MyFormSubmit">{{
-            $t('confirm')
-          }}</el-button>
-        </div>
-      </el-dialog>
-
-      <!-- 成员权限弹窗 -->
-      <el-dialog
-        :visible.sync="dialogFormTeamMemberVisible"
-        top="10vh"
-        :title="$t('adjust_member_authority')"
-        :close-on-click-modal="false"
-      >
-        <p>
-          <el-button type="text" @click="setAllMemberRead"
-            >&nbsp;{{ $t('all_member_read') }}</el-button
-          >
-        </p>
-        <el-table
-          align="left"
-          :empty-text="$t('team_member_empty_tips')"
-          :data="teamItemMembers"
-          style="width: 100%"
+    <!-- 绑定项目弹窗 -->
+    <SDialog
+      v-if="dialogFormVisible"
+      :title="$t('item')"
+      :onCancel="
+        () => {
+          dialogFormVisible = false
+        }
+      "
+      :showCancel="false"
+      :onOK="myFormSubmit"
+      width="300px"
+    >
+      <el-form>
+        <el-select
+          multiple
+          filterable
+          v-model="MyForm.item_id"
+          :placeholder="$t('please_choose')"
         >
-          <el-table-column
-            prop="member_username"
-            :label="$t('username')"
-          ></el-table-column>
-          <el-table-column
-            prop="member_group_id"
-            :label="$t('authority')"
-            width="120"
-          >
-            <template slot-scope="scope">
-              <el-select
-                size="mini"
-                v-model="scope.row.member_group_id"
-                @change="changeTeamItemMemberGroup($event, scope.row.id)"
-                :placeholder="$t('please_choose')"
-              >
-                <el-option
-                  v-for="item in authorityOptions"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                ></el-option>
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column prop="cat_id" :label="$t('catalog')" width="130">
-            <template slot-scope="scope">
-              <el-select
-                size="mini"
-                v-if="scope.row.member_group_id <= 1"
-                v-model="scope.row.cat_id"
-                @change="changeTeamItemMemberCat($event, scope.row.id)"
-                :placeholder="$t('please_choose')"
-              >
-                <el-option
-                  v-for="item in catalogs"
-                  :key="item.cat_id"
-                  :label="item.cat_name"
-                  :value="item.cat_id"
-                ></el-option>
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column
-            prop="addtime"
-            :label="$t('add_time')"
-          ></el-table-column>
-        </el-table>
-        <br />
-        <p class="tips">{{ $t('team_member_authority_tips') }}</p>
-        <div slot="footer" class="dialog-footer">
-          <el-button @click="dialogFormTeamMemberVisible = false">{{
-            $t('close')
-          }}</el-button>
-        </div>
-      </el-dialog>
-    </el-container>
+          <el-option
+            v-for="item in itemList"
+            :key="item.item_id"
+            :label="item.item_name"
+            :value="item.item_id"
+          ></el-option>
+        </el-select>
+      </el-form>
+      <br />
+      <router-link to="/item/index" target="_blank">{{
+        $t('go_to_new_an_item')
+      }}</router-link>
+    </SDialog>
 
-    <Footer></Footer>
+    <!-- 成员权限弹窗 -->
+    <SDialog
+      v-if="dialogFormTeamMemberVisible"
+      :onCancel="
+        () => {
+          dialogFormTeamMemberVisible = false
+        }
+      "
+      :showCancel="false"
+      :onOK="
+        () => {
+          dialogFormTeamMemberVisible = false
+        }
+      "
+      top="10vh"
+      :title="$t('adjust_member_authority')"
+      width="600px"
+    >
+      <p>
+        <el-button type="text" @click="setAllMemberRead"
+          >&nbsp;{{ $t('all_member_read') }}</el-button
+        >
+      </p>
+      <el-table
+        align="left"
+        :empty-text="$t('team_member_empty_tips')"
+        :data="teamItemMembers"
+        style="width: 100%"
+      >
+        <el-table-column
+          prop="member_username"
+          :label="$t('username')"
+        ></el-table-column>
+        <el-table-column prop="name" :label="$t('name')"></el-table-column>
+        <el-table-column
+          prop="member_group_id"
+          :label="$t('authority')"
+          width="120"
+        >
+          <template slot-scope="scope">
+            <el-select
+              size="mini"
+              v-model="scope.row.member_group_id"
+              @change="changeTeamItemMemberGroup($event, scope.row.id)"
+              :placeholder="$t('please_choose')"
+            >
+              <el-option
+                v-for="item in authorityOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              ></el-option>
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column prop="cat_id" :label="$t('catalog')" width="130">
+          <template slot-scope="scope">
+            <el-select
+              size="mini"
+              v-if="scope.row.member_group_id <= 1"
+              v-model="scope.row.cat_id"
+              @change="changeTeamItemMemberCat($event, scope.row.id)"
+              :placeholder="$t('please_choose')"
+            >
+              <el-option
+                v-for="item in catalogs"
+                :key="item.cat_id"
+                :label="item.cat_name"
+                :value="item.cat_id"
+              ></el-option>
+            </el-select>
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="addtime"
+          :label="$t('add_time')"
+        ></el-table-column>
+      </el-table>
+      <br />
+      <p class="tips-text">{{ $t('team_member_authority_tips') }}</p>
+    </SDialog>
   </div>
 </template>
 
 <script>
 export default {
   components: {},
+  props: {
+    callback: {
+      type: Function,
+      required: false,
+      default: () => {}
+    },
+    team_id: {
+      type: Number,
+      required: false,
+      default: 0
+    },
+    team_manage: {
+      type: Number || String,
+      required: false,
+      default: 1
+    }
+  },
   data() {
     return {
       MyForm: {
@@ -167,7 +199,6 @@ export default {
       },
       list: [],
       dialogFormVisible: false,
-      team_id: '',
       itemList: [],
       teamItemMembers: [],
       dialogFormTeamMemberVisible: false,
@@ -190,62 +221,38 @@ export default {
   },
   methods: {
     geList() {
-      var that = this
-      var url = DocConfig.server + '/api/teamItem/getListByTeam'
-      var params = new URLSearchParams()
-      params.append('team_id', this.team_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-
-          that.list = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItem/getListByTeam', {
+        team_id: this.team_id
+      }).then(data => {
+        this.list = data.data
       })
     },
     getItemList() {
-      var that = this
       this.request('/api/item/myList', { original: 1 }).then(data => {
-        that.itemList = data.data
+        this.itemList = data.data
       })
     },
-    MyFormSubmit() {
-      var that = this
-      var url = DocConfig.server + '/api/teamItem/save'
-
-      var params = new URLSearchParams()
-      params.append('team_id', this.team_id)
-      params.append('item_id', this.MyForm.item_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.dialogFormVisible = false
-          that.geList()
-          that.MyForm = {}
-        } else {
-          that.$alert(response.data.error_message)
-        }
+    myFormSubmit() {
+      this.request('/api/teamItem/save', {
+        team_id: this.team_id,
+        item_id: this.MyForm.item_id
+      }).then(data => {
+        this.dialogFormVisible = false
+        this.geList()
+        this.MyForm = {}
       })
     },
 
     deleteTeamItem(id) {
-      var that = this
-      var url = DocConfig.server + '/api/teamItem/delete'
-
-      this.$confirm(that.$t('confirm_unassign'), ' ', {
-        confirmButtonText: that.$t('confirm'),
-        cancelButtonText: that.$t('cancel'),
+      this.$confirm(this.$t('confirm_unassign'), ' ', {
+        confirmButtonText: this.$t('confirm'),
+        cancelButtonText: this.$t('cancel'),
         type: 'warning'
       }).then(() => {
-        var params = new URLSearchParams()
-        params.append('id', id)
-
-        that.axios.post(url, params).then(function(response) {
-          if (response.data.error_code === 0) {
-            that.geList()
-          } else {
-            that.$alert(response.data.error_message)
-          }
+        this.request('/api/teamItem/delete', {
+          id: id
+        }).then(data => {
+          this.geList()
         })
       })
     },
@@ -257,70 +264,41 @@ export default {
       this.$router.push({ path: '/team/index' })
     },
     getTeamItemMember(item_id) {
-      var that = this
       this.dialogFormTeamMemberVisible = true
-      this.get_catalog(item_id)
-      var url = DocConfig.server + '/api/teamItemMember/getList'
-      var params = new URLSearchParams()
-      params.append('item_id', item_id)
-      params.append('team_id', this.team_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          that.teamItemMembers = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.getCatalog(item_id)
+      this.request('/api/teamItemMember/getList', {
+        item_id: item_id,
+        team_id: this.team_id
+      }).then(data => {
+        this.teamItemMembers = data.data
       })
     },
     changeTeamItemMemberGroup(member_group_id, id, showMsg = true) {
-      var that = this
-      var url = DocConfig.server + '/api/teamItemMember/save'
-
-      var params = new URLSearchParams()
-      params.append('member_group_id', member_group_id)
-      params.append('id', id)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          if (showMsg) that.$message(that.$t('auth_success'))
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItemMember/save', {
+        member_group_id: member_group_id,
+        id: id
+      }).then(data => {
+        if (showMsg) this.$message(this.$t('auth_success'))
       })
     },
     changeTeamItemMemberCat(cat_id, id) {
-      var that = this
-      var url = DocConfig.server + '/api/teamItemMember/save'
-
-      var params = new URLSearchParams()
-      params.append('cat_id', cat_id)
-      params.append('id', id)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.$message(that.$t('cat_success'))
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItemMember/save', {
+        id: id,
+        cat_id: cat_id
+      }).then(data => {
+        this.$message(this.$t('cat_success'))
       })
     },
-    get_catalog(item_id) {
-      var that = this
-      var url = DocConfig.server + '/api/catalog/catListGroup'
-      var params = new URLSearchParams()
-      params.append('item_id', item_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          Info.unshift({
-            cat_id: '0',
-            cat_name: that.$t('all_cat')
-          })
-          that.catalogs = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
+    getCatalog(item_id) {
+      this.request('/api/catalog/catListGroup', {
+        item_id: item_id
+      }).then(data => {
+        var Info = data.data
+        Info.unshift({
+          cat_id: '0',
+          cat_name: this.$t('all_cat')
+        })
+        this.catalogs = Info
       })
     },
     // 一键全部设置为只读
@@ -335,7 +313,6 @@ export default {
   },
 
   mounted() {
-    this.team_id = this.$route.params.team_id
     this.geList()
     this.getItemList()
   }

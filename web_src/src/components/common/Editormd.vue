@@ -1,7 +1,5 @@
 <template>
   <div :id="id" class="main-editor">
-    <!-- 放大图片 -->
-    <BigImg v-if="showImg" @clickit="showImg = false" :imgSrc="imgSrc"></BigImg>
   </div>
 </template>
 <style src="@/../static/editor.md/css/editormd.min.css"></style>
@@ -9,6 +7,11 @@
 <style>
 .editormd-preview-container {
   min-height: 60%;
+}
+
+.markdown-body {
+  font-size: 14px;
+  line-height:1.75;
 }
 
 .markdown-body h1 {
@@ -24,7 +27,10 @@
   font-size: 1.1em !important;
 }
 .markdown-body code {
-  color: #d14;
+  color: #409eff;
+  font-family: Consolas, Monaco, Lucida Console, Liberation Mono,
+    DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
+  background: #f9f9f9;
 }
 .markdown-body pre code {
   color: #d1d2d2;
@@ -35,8 +41,7 @@
 }
 
 .markdown-body table thead tr {
-  background-color: #409eff;
-  color: #fff;
+  background-color: rgba(64, 158, 255, 0.1);
 }
 
 .markdown-body pre {
@@ -44,6 +49,12 @@
   background-color: #384548;
   padding: 0;
   color: #d1d2d2;
+  padding: 1em;
+  border-radius: 4px;
+}
+
+.markdown-body pre code {
+  padding: 0em; /* .markdown-body pre 已经设置 padding: 1em , 所以代码块不再需要边距 */
 }
 
 .markdown-body pre .btn-pre-copy {
@@ -60,7 +71,7 @@
   position: absolute;
   top: 10px;
   right: 12px;
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   cursor: pointer;
   color: #999;
@@ -78,16 +89,57 @@
   margin-bottom: 0;
   border-top-left-radius: 5px;
   border-top-right-radius: 5px;
-  background-position: 10px 10px;
+  background-position: 0px 10px;
 }
 /* 默认的代码高亮主题样式里，对代码注释的颜色看不清楚，所以重写下 */
 .hljs-comment,
 .hljs-quote {
   color: #aaa;
 }
+
+/* 调整下编辑器的按钮样式 */
+.editormd-menu > li {
+  margin-left: 10px;
+}
+.editormd-menu > li > a > .fa {
+  font-size: 13px;
+}
+
+/* 因跟fa 图标的样式冲突，这个按钮冒出来了。这里强制把它隐藏 */
+.editormd-preview-close-btn {
+  display: none !important;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-bottom: 1.5em;
+  line-height: 1.75;
+}
+.markdown-body p,
+.markdown-body blockquote,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body dl,
+.markdown-body table,
+.markdown-body pre {
+  margin-bottom: 1.5em;
+}
+.markdown-body dl dd {
+  margin-bottom: 1.5em;
+}
+.markdown-body .highlight {
+  margin-bottom: 1.5em;
+}
+
 </style>
 <script>
-import BigImg from '@/components/common/BigImg'
+import { getUserInfoFromStorage } from '@/models/user.js'
+import 'viewerjs/dist/viewer.css'
+import { api as viewerApi } from 'v-viewer'
 if (typeof window !== 'undefined') {
   var $s = require('scriptjs')
 }
@@ -121,7 +173,7 @@ export default {
       default() {
         return {
           path: 'static/editor.md/lib/',
-          height: 750,
+          height: '70vh',
           taskList: true,
           atLink: false,
           emailLink: false,
@@ -145,7 +197,7 @@ export default {
             'BMP',
             'WEBP'
           ],
-          imageUploadURL: DocConfig.server + '/api/page/uploadImg',
+          imageUploadURL: '',
           onload: () => {
             console.log('onload')
           },
@@ -187,13 +239,12 @@ export default {
               'pagebreak',
               '|',
               'watch',
-              'preview',
+
               'fullscreen',
               'clear',
               'search',
               '|',
-              'help',
-              'info'
+              'help'
             ]
           },
           toolbarIconsClass: {
@@ -266,42 +317,52 @@ export default {
     }
   },
   components: {
-    BigImg
+    
   },
   data() {
     return {
       instance: null,
-      showImg: false,
-      imgSrc: ''
+      imgSrc: '',
+      user_token: '',
+      intervalId: 0
+
     }
   },
   computed: {},
   mounted() {
-    // 加载依赖""
+    const userInfo = getUserInfoFromStorage()
+    this.user_token = userInfo.user_token
+    // 加载依赖
     $s(
       [
         `${this.editorPath}/../jquery.min.js`,
-        `${this.editorPath}/lib/raphael.min.js`,
-        `${this.editorPath}/lib/d3@5.min.js`,
-        `${this.editorPath}/lib/flowchart.min.js`
+        `${this.editorPath}/lib/raphael.min.js`
       ],
       () => {
         $s(
           [
-            `${this.editorPath}/../xss.min.js`,
-            `${this.editorPath}/lib/marked.min.js`,
-            `${this.editorPath}/lib/underscore.min.js`,
-            `${this.editorPath}/lib/sequence-diagram.min.js`,
-            `${this.editorPath}/lib/jquery.flowchart.min.js`,
-            `${this.editorPath}/lib/jquery.mark.min.js`,
-            `${this.editorPath}/lib/plantuml.js?v=2`,
-            `${this.editorPath}/lib/view.min.js`,
-            `${this.editorPath}/lib/transform.min.js`
+            `${this.editorPath}/lib/d3@5.min.js`,
+            `${this.editorPath}/lib/flowchart.min.js`
           ],
           () => {
-            $s(`${this.editorPath}/editormd.js`, () => {
-              this.initEditor()
-            })
+            $s(
+              [
+                `${this.editorPath}/../xss.min.js`,
+                `${this.editorPath}/lib/marked.min.js`,
+                `${this.editorPath}/lib/underscore.min.js`,
+                `${this.editorPath}/lib/sequence-diagram.min.js`,
+                `${this.editorPath}/lib/jquery.flowchart.min.js`,
+                `${this.editorPath}/lib/jquery.mark.min.js`,
+                `${this.editorPath}/lib/plantuml.js?v=2`,
+                `${this.editorPath}/lib/view.min.js`,
+                `${this.editorPath}/lib/transform.min.js`
+              ],
+              () => {
+                $s(`${this.editorPath}/editormd.js`, () => {
+                  this.initEditor()
+                })
+              }
+            )
           }
         )
       }
@@ -309,10 +370,7 @@ export default {
   },
   beforeDestroy() {
     // 清理所有定时器
-    for (var i = 1; i < 999; i++) {
-      window.clearInterval(i)
-    }
-
+    window.clearInterval(this.intervalId)
     // window.removeEventListener('beforeunload', e => this.beforeunloadHandler(e))
   },
   methods: {
@@ -320,6 +378,17 @@ export default {
       this.$nextTick((editorMD = window.editormd) => {
         const editorConfig = this.editorConfig
         editorConfig.markdown = this.content
+        if (DocConfig.server.indexOf('?') > -1) {
+          editorConfig.imageUploadURL =
+            DocConfig.server +
+            '/api/page/uploadImg&user_token=' +
+            this.user_token
+        } else {
+          editorConfig.imageUploadURL =
+            DocConfig.server +
+            '/api/page/uploadImg?user_token=' +
+            this.user_token
+        }
         if (editorMD) {
           if (this.type == 'editor') {
             this.instance = editorMD(this.id, editorConfig)
@@ -342,11 +411,11 @@ export default {
     getMarkdown() {
       return this.instance.getMarkdown()
     },
-    editor_unwatch() {
+    editorUnwatch() {
       return this.instance.unwatch()
     },
 
-    editor_watch() {
+    editorWatch() {
       return this.instance.watch()
     },
     setCursorToTop() {
@@ -361,7 +430,7 @@ export default {
     draft() {
       var that = this
       // 定时保存文本内容到localStorage
-      setInterval(() => {
+      this.intervalId = setInterval(() => {
         localStorage.page_content = that.getMarkdown()
       }, 60000)
 
@@ -492,8 +561,10 @@ export default {
       // 图片点击放大
       $('#' + this.id + ' img').click(function() {
         var img_url = $(this).attr('src')
-        that.showImg = true // 获取当前图片地址
         that.imgSrc = img_url
+        viewerApi({
+          images: [img_url]
+        })
       })
 
       // 高亮关键字

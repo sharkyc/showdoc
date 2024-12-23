@@ -42,13 +42,13 @@
             <el-input
               type="text"
               auto-complete="off"
-              v-model="v_code"
+              v-model="captcha"
               :placeholder="$t('verification_code')"
             ></el-input>
             <img
               v-bind:src="v_code_img"
               class="v_code_img"
-              v-on:click="change_v_code_img"
+              v-on:click="changeVcodeImg"
             />
           </el-form-item>
 
@@ -79,39 +79,73 @@ export default {
       username: '',
       password: '',
       confirm_password: '',
-      v_code: '',
-      v_code_img: DocConfig.server + '/api/common/verify'
+      v_code_img: '',
+      captchaId: 0,
+      captcha: ''
     }
   },
   methods: {
     onSubmit() {
-      // this.$message.success(this.username);
-      var that = this
-      var url = DocConfig.server + '/api/user/register'
+      this.showLoding = true
+      // 如果后面的接口回调关闭不了loading的话，那这个loading最迟3秒关闭
+      setTimeout(() => {
+        this.showLoding = false
+      }, 3000)
 
-      var params = new URLSearchParams()
-      params.append('username', this.username)
-      params.append('password', this.password)
-      params.append('confirm_password', this.confirm_password)
-      params.append('v_code', this.v_code)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          // that.$message.success("注册成功");
-          localStorage.setItem('userinfo', JSON.stringify(response.data.data))
-          that.$router.push({ path: '/item/index' })
+      this.request(
+        '/api/user/registerByVerify',
+        {
+          username: this.username,
+          password: this.password,
+          confirm_password: this.confirm_password,
+          captcha: this.captcha,
+          captcha_id: this.captchaId,
+          inviteCode: this.inviteCode
+        },
+        'post',
+        false
+      ).then(data => {
+        if (data.error_code === 0) {
+          localStorage.setItem('userinfo', JSON.stringify(data.data))
+          this.$router.push({ path: '/item/index' })
         } else {
-          that.change_v_code_img()
-          that.$alert(response.data.error_message)
+          this.changeVcodeImg()
+          this.$alert(data.error_message)
         }
       })
     },
-    change_v_code_img() {
-      var rand = '&rand=' + Math.random()
-      this.v_code_img += rand
+    changeVcodeImg() {
+      this.request('/api/common/createCaptcha', {}).then(data => {
+        const json = data.data
+        if (DocConfig.server.indexOf('?') > -1) {
+          this.v_code_img =
+            DocConfig.server +
+            '/api/common/showCaptcha&captcha_id=' +
+            json.captcha_id +
+            '&' +
+            Date.parse(new Date())
+        } else {
+          this.v_code_img =
+            DocConfig.server +
+            '/api/common/showCaptcha?captcha_id=' +
+            json.captcha_id +
+            '&' +
+            Date.parse(new Date())
+        }
+
+        this.captchaId = json.captcha_id
+      })
     }
   },
-  mounted() {},
+  mounted() {
+    // 如果是从对话框中跳转到登录页面，可能遮罩层来不及关闭，导致登录页面无法点击。这个时候，写js去掉遮罩层。
+    const eles = document.getElementsByClassName('v-modal-leave')
+    for (let index = 0; index < eles.length; index++) {
+      const element = eles[index]
+      element.remove()
+    }
+    this.changeVcodeImg()
+  },
   beforeDestroy() {}
 }
 </script>

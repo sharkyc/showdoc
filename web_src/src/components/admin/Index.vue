@@ -14,7 +14,7 @@
             class="el-menu-vertical-demo"
             background-color="#545c64"
             text-color="#fff"
-            @select="select_menu"
+            @select="selectMenu"
             active-text-color="#ffd04b"
           >
             <el-menu-item index="1">
@@ -37,7 +37,7 @@
               <i class="el-icon-tickets"></i>
               <span slot="title">{{ $t('web_setting') }}</span>
             </el-menu-item>
-            <el-menu-item index="6" v-show="lang == 'zh-cn'">
+            <el-menu-item index="6" v-show="$lang == 'zh-cn'">
               <i class="el-icon-tickets"></i>
               <span slot="title"
                 ><el-badge :value="isUpdate ? 'new' : ''"
@@ -67,7 +67,6 @@
 
 <style scoped>
 .el-header {
-  background-color: #fff;
   color: #333;
   text-align: center;
   line-height: 60px;
@@ -140,8 +139,7 @@ export default {
   data() {
     return {
       open_menu_index: 1,
-      isUpdate: false,
-      lang: ''
+      isUpdate: false
     }
   },
   components: {
@@ -153,7 +151,7 @@ export default {
     About
   },
   methods: {
-    select_menu(index, indexPath) {
+    selectMenu(index, indexPath) {
       this.open_menu_index = 0
       this.$nextTick(() => {
         this.open_menu_index = index
@@ -168,14 +166,10 @@ export default {
     }
   },
   mounted() {
-    // 只对中文版进行更新检查
-    this.lang = DocConfig.lang
     this.checkUpadte()
-    this.unset_bg_grey()
   },
   beforeDestroy() {
     this.$message.closeAll()
-    this.set_bg_grey()
   }
 }
 </script>

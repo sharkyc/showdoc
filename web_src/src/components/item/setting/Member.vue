@@ -1,107 +1,130 @@
 <template>
   <div class="hello">
-    <el-button
-      type="text"
-      class="add-member"
-      @click="dialogFormVisible = true"
-      >{{ $t('add_member') }}</el-button
+    <SDialog
+      :onCancel="callback"
+      :title="$t('member_manage')"
+      width="650px"
+      :onOK="callback"
+      :showCancel="false"
+      :showOk="false"
+      :btn1Text="$t('add_member')"
+      btn1Icon="el-icon-plus"
+      :btn1Medthod="
+        () => {
+          dialogFormVisible = true
+        }
+      "
+      :btn2Text="$t('add_team')"
+      btn2Icon="el-icon-plus"
+      :btn2Medthod="
+        () => {
+          dialogFormTeamVisible = true
+        }
+      "
     >
-    <el-button
-      type="text"
-      class="add-member"
-      @click="dialogFormTeamVisible = true"
-      >{{ $t('add_team') }}</el-button
-    >
-
-    <!-- 单个成员列表 -->
-    <el-table
-      align="left"
-      v-if="members.length > 0"
-      :data="members"
-      height="200"
-      style="width: 100%"
-    >
-      <el-table-column
-        prop="username"
-        :label="$t('member_username')"
-        width="100"
-      ></el-table-column>
-      <el-table-column prop="name" :label="$t('name')"></el-table-column>
-      <el-table-column
-        prop="addtime"
-        :label="$t('add_time')"
-        width="100"
-      ></el-table-column>
-      <el-table-column
-        prop="member_group_id"
-        :label="$t('authority')"
-        width="120"
+      <h4 v-if="members.length > 0">{{ $t('item_member') }}</h4>
+      <!-- 单个成员列表 -->
+      <el-table
+        align="left"
+        class="mb-8"
+        v-if="members.length > 0"
+        :data="members"
+        style="width: 100%"
       >
-        <template slot-scope="scope"
-          >{{ memberGroupText(scope.row.member_group_id, scope.row.cat_name) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop :label="$t('operation')">
-        <template slot-scope="scope">
-          <el-button
-            @click="delete_member(scope.row.item_member_id)"
-            type="text"
-            size="small"
-            >{{ $t('delete') }}</el-button
-          >
-        </template>
-      </el-table-column>
-    </el-table>
+        <el-table-column
+          prop="username"
+          :label="$t('member_username')"
+        ></el-table-column>
+        <el-table-column prop="name" :label="$t('name')"></el-table-column>
+        <el-table-column
+          prop="addtime"
+          :label="$t('add_time')"
+        ></el-table-column>
+        <el-table-column prop="member_group_id" :label="$t('authority')">
+          <template slot-scope="scope"
+            >{{
+              memberGroupText(scope.row.member_group_id, scope.row.cat_name)
+            }}
+          </template>
+        </el-table-column>
+        <el-table-column prop :label="$t('operation')">
+          <template slot-scope="scope">
+            <el-button
+              @click="deleteMember(scope.row.item_member_id)"
+              type="text"
+              size="small"
+              >{{ $t('delete') }}</el-button
+            >
+          </template>
+        </el-table-column>
+      </el-table>
 
-    <!-- 团队列表 -->
-    <el-table
-      align="left"
-      v-if="teamItems.length > 0"
-      :data="teamItems"
-      height="200"
-      style="width: 100%"
-    >
-      <el-table-column
-        prop="team_name"
-        :label="$t('team_name')"
-      ></el-table-column>
-      <el-table-column prop="addtime" :label="$t('add_time')"></el-table-column>
+      <h4 v-if="teamItems.length > 0">{{ $t('item_team_info') }}</h4>
+      <!-- 团队列表 -->
+      <el-table
+        align="left"
+        v-if="teamItems.length > 0"
+        :data="teamItems"
+        style="width: 100%"
+      >
+        <el-table-column
+          prop="team_name"
+          :label="$t('team_name')"
+        ></el-table-column>
+        <el-table-column
+          prop="addtime"
+          :label="$t('add_time')"
+        ></el-table-column>
 
-      <el-table-column prop :label="$t('operation')">
-        <template slot-scope="scope">
-          <el-button
-            @click="getTeamItemMember(scope.row.team_id)"
-            type="text"
-            size="small"
-            >{{ $t('member_authority') }}</el-button
-          >
-          <el-button
-            @click="deleteTeam(scope.row.id)"
-            type="text"
-            size="small"
-            >{{ $t('delete') }}</el-button
-          >
-        </template>
-      </el-table-column>
-    </el-table>
+        <el-table-column prop :label="$t('operation')">
+          <template slot-scope="scope">
+            <el-button
+              @click="getTeamItemMember(scope.row.team_id)"
+              type="text"
+              size="small"
+              >{{ $t('member_authority') }}</el-button
+            >
+            <el-button
+              @click="deleteTeam(scope.row.id)"
+              type="text"
+              size="small"
+              >{{ $t('delete') }}</el-button
+            >
+          </template>
+        </el-table-column>
+      </el-table>
+      <p
+        v-if="members.length == 0 && teamItems.length == 0"
+        class="v3-color-aux"
+      >
+        {{ $t('no_member_tips') }}
+      </p>
+    </SDialog>
 
     <!-- 添加单个成员弹窗 -->
-    <el-dialog
-      :visible.sync="dialogFormVisible"
-      :modal="false"
-      top="10vh"
+    <SDialog
+      v-if="dialogFormVisible"
+      :onCancel="
+        () => {
+          dialogFormVisible = false
+        }
+      "
+      :title="$t('add_member')"
       width="400px"
-      :close-on-click-modal="false"
+      :onOK="
+        () => {
+          myFormSubmit()
+        }
+      "
     >
       <el-form>
-        <el-form-item label>
+        <el-form-item :label="$t('member_username') + ':'">
           <el-select
             v-model="MyForm.username"
             multiple
             filterable
             reserve-keyword
             placeholder
-            :loading="loading"
           >
             <el-option
               v-for="item in memberOptions"
@@ -124,6 +147,7 @@
         </el-form-item>
         <el-form-item label v-show="MyForm.member_group_id < 2">
           <el-select
+            filterable
             style="width:100%"
             v-model="MyForm.cat_id"
             :placeholder="$t('all_cat2')"
@@ -138,57 +162,66 @@
         </el-form-item>
       </el-form>
 
-      <p class="tips">{{ $t('member_authority_tips') }}</p>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">{{
-          $t('cancel')
-        }}</el-button>
-        <el-button type="primary" @click="MyFormSubmit">{{
-          $t('confirm')
-        }}</el-button>
-      </div>
-    </el-dialog>
+      <p class="v3-font-size-sm v3-color-aux">
+        {{ $t('member_authority_tips') }}
+      </p>
+    </SDialog>
 
     <!-- 添加团队弹窗 -->
-    <el-dialog
-      :visible.sync="dialogFormTeamVisible"
-      :modal="false"
-      top="10vh"
-      :close-on-click-modal="false"
+    <SDialog
+      v-if="dialogFormTeamVisible"
+      :onCancel="
+        () => {
+          dialogFormTeamVisible = false
+        }
+      "
+      :title="$t('member_manage')"
+      width="400px"
+      :onOK="
+        () => {
+          addTeam()
+        }
+      "
+      :btn1Text="$t('go_to_new_an_team')"
+      btn1Icon="el-icon-plus"
+      :btn1Medthod="
+        () => {
+          showTeam = true
+        }
+      "
     >
-      <el-form>
-        <el-form-item label="选择团队">
-          <el-select class v-model="MyForm2.team_id">
-            <el-option
-              v-for="team in teams"
-              :key="team.team_name"
-              :label="team.team_name"
-              :value="team.id"
-            ></el-option>
-          </el-select>
-        </el-form-item>
-        <router-link to="/team/index" target="_blank">{{
-          $t('go_to_new_an_team')
-        }}</router-link>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormTeamVisible = false">{{
-          $t('cancel')
-        }}</el-button>
-        <el-button type="primary" @click="addTeam">{{
-          $t('confirm')
-        }}</el-button>
+      <div>
+        <el-form>
+          <el-form-item :label="$t('c_team')">
+            <el-select filterable class v-model="MyForm2.team_id">
+              <el-option
+                v-for="team in teams"
+                :key="team.team_name"
+                :label="team.team_name"
+                :value="team.id"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+        </el-form>
       </div>
-    </el-dialog>
+    </SDialog>
 
     <!-- 成员权限弹窗 -->
-    <el-dialog
-      :visible.sync="dialogFormTeamMemberVisible"
-      :modal="false"
-      top="10vh"
+    <SDialog
+      v-if="dialogFormTeamMemberVisible"
+      :onCancel="
+        () => {
+          dialogFormTeamMemberVisible = false
+        }
+      "
       :title="$t('adjust_member_authority')"
-      width="90%"
-      :close-on-click-modal="false"
+      width="700px"
+      :onOK="
+        () => {
+          dialogFormTeamMemberVisible = false
+        }
+      "
+      :showCancel="false"
     >
       <el-table
         align="left"
@@ -245,20 +278,33 @@
         ></el-table-column>
       </el-table>
       <br />
-      <p class="tips">{{ $t('team_member_authority_tips') }}</p>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormTeamMemberVisible = false">{{
-          $t('close')
-        }}</el-button>
-      </div>
-    </el-dialog>
+      <p class="v3-font-size-sm v3-color-aux">
+        {{ $t('team_member_authority_tips') }}
+      </p>
+    </SDialog>
+
+    <!-- 去新建团队/团队管理 -->
+    <Team
+      v-if="showTeam"
+      :callback="
+        () => {
+          getTeams()
+          showTeam = false
+        }
+      "
+    ></Team>
   </div>
 </template>
 
 <script>
+import Team from '@/components/team/Index'
 export default {
-  name: 'Login',
-  components: {},
+  name: '',
+  components: { Team },
+  props: {
+    callback: () => {},
+    item_id: 0
+  },
   data() {
     return {
       MyForm: {
@@ -290,201 +336,178 @@ export default {
           value: '2'
         }
       ],
+      catalogs: [],
+      myAllList: [], // 我之前添加过的成员列表,
+      showTeam: false,
       memberOptions: []
     }
   },
   methods: {
-    get_members() {
-      var that = this
-      var url = DocConfig.server + '/api/member/getList'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          that.members = Info
-          that.getAllUser()
-        } else {
-          that.$alert(response.data.error_message)
-        }
+    getMembers() {
+      this.request('/api/member/getList', {
+        item_id: this.item_id
+      }).then(data => {
+        const json = data.data
+        this.members = json
       })
     },
-    get_teams() {
-      var that = this
-      var url = DocConfig.server + '/api/team/getList'
-      var params = new URLSearchParams()
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          that.teams = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
+    getTeams() {
+      this.request('/api/team/getList', {}).then(data => {
+        const json = data.data
+        this.teams = json
       })
     },
     getTeamItem() {
-      var that = this
-      var url = DocConfig.server + '/api/teamItem/getList'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          that.teamItems = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItem/getList', {
+        item_id: this.item_id
+      }).then(data => {
+        const json = data.data
+        this.teamItems = json
       })
     },
     getTeamItemMember(team_id) {
-      var that = this
       this.dialogFormTeamMemberVisible = true
-      var url = DocConfig.server + '/api/teamItemMember/getList'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      params.append('team_id', team_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          that.teamItemMembers = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItemMember/getList', {
+        item_id: this.item_id,
+        team_id: team_id
+      }).then(data => {
+        const json = data.data
+        this.teamItemMembers = json
       })
     },
-    MyFormSubmit() {
-      var that = this
-      var url = DocConfig.server + '/api/member/save'
-
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      params.append('username', this.MyForm.username)
-      params.append('cat_id', this.MyForm.cat_id)
-      params.append('member_group_id', this.MyForm.member_group_id)
-
-      that.axios
-        .post(url, params)
-        .then(function(response) {
-          if (response.data.error_code === 0) {
-            that.dialogFormVisible = false
-            that.get_members()
-            that.MyForm.username = ''
-          } else {
-            that.$alert(response.data.error_message)
-          }
-        })
-        .catch(function(error) {
-          console.log(error)
-        })
+    myFormSubmit() {
+      this.request(
+        '/api/member/save',
+        {
+          item_id: this.item_id,
+          username: this.MyForm.username,
+          cat_id: this.MyForm.cat_id,
+          member_group_id: this.MyForm.member_group_id
+        },
+        'post',
+        false
+      ).then(data => {
+        if (data.error_code === 0) {
+          this.dialogFormVisible = false
+          this.getMembers()
+          this.MyForm.username = ''
+        } else if (data.error_code === 10310) {
+          this.$alert(
+            '你添加的协作成员数量超出限制(所有团队成员以及所有项目的单独成员加起来后去重，就是协作成员数)。你可以开通高级版以获取更多配额。<a href="/prices" target="_blank" >点此查看不同账户类型的额度限制差异</a>，也可以<a href="/user/setting" target="_blank" >点此去升级账户类型</a>。<br>如果你现在不方便处理，你可以等会再自行回到项目列表页，点击右上角的用户中心去升级。',
+            {
+              dangerouslyUseHTMLString: true
+            }
+          )
+        } else {
+          this.$alert(data.error_message)
+        }
+      })
     },
     addTeam() {
-      var that = this
-      var url = DocConfig.server + '/api/teamItem/save'
-
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      params.append('team_id', this.MyForm2.team_id)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.dialogFormTeamVisible = false
-          that.getTeamItem()
-          that.MyForm.team_id = ''
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItem/save', {
+        item_id: this.item_id,
+        team_id: this.MyForm2.team_id
+      }).then(data => {
+        this.dialogFormTeamVisible = false
+        this.getTeamItem()
+        this.MyForm.team_id = ''
       })
     },
-    delete_member(item_member_id) {
-      var that = this
-      var url = DocConfig.server + '/api/member/delete'
-
-      this.$confirm(that.$t('confirm_delete'), ' ', {
-        confirmButtonText: that.$t('confirm'),
-        cancelButtonText: that.$t('cancel'),
+    deleteMember(item_member_id) {
+      this.$confirm(this.$t('confirm_delete'), ' ', {
+        confirmButtonText: this.$t('confirm'),
+        cancelButtonText: this.$t('cancel'),
         type: 'warning'
       }).then(() => {
-        var params = new URLSearchParams()
-        params.append('item_id', that.$route.params.item_id)
-        params.append('item_member_id', item_member_id)
-
-        that.axios.post(url, params).then(function(response) {
-          if (response.data.error_code === 0) {
-            that.get_members()
-          } else {
-            that.$alert(response.data.error_message)
-          }
+        this.request('/api/member/delete', {
+          item_id: this.item_id,
+          item_member_id: item_member_id
+        }).then(data => {
+          this.getMembers()
         })
       })
     },
     deleteTeam(id) {
-      var that = this
-      var url = DocConfig.server + '/api/teamItem/delete'
-
-      this.$confirm(that.$t('confirm_delete'), ' ', {
-        confirmButtonText: that.$t('confirm'),
-        cancelButtonText: that.$t('cancel'),
+      this.$confirm(this.$t('confirm_delete'), ' ', {
+        confirmButtonText: this.$t('confirm'),
+        cancelButtonText: this.$t('cancel'),
         type: 'warning'
       }).then(() => {
-        var params = new URLSearchParams()
-        params.append('id', id)
-        that.axios.post(url, params).then(function(response) {
-          if (response.data.error_code === 0) {
-            that.getTeamItem()
-          } else {
-            that.$alert(response.data.error_message)
-          }
+        this.request('/api/teamItem/delete', {
+          id: id
+        }).then(data => {
+          this.getTeamItem()
         })
       })
     },
     changeTeamItemMemberGroup(member_group_id, id) {
-      var that = this
-      var url = DocConfig.server + '/api/teamItemMember/save'
-
-      var params = new URLSearchParams()
-      params.append('member_group_id', member_group_id)
-      params.append('id', id)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.$message(that.$t('auth_success'))
-        } else {
-          that.$alert(response.data.error_message)
-        }
+      this.request('/api/teamItemMember/save', {
+        member_group_id: member_group_id,
+        id: id
+      }).then(data => {
+        this.$message(this.$t('auth_success'))
       })
     },
-    getAllUser(queryString, cb) {
-      var that = this
-      var url = DocConfig.server + '/api/user/allUser'
-      var params = new URLSearchParams()
-      if (!queryString) {
-        queryString = ''
+    getCatalog() {
+      this.request('/api/catalog/catListGroup', {
+        item_id: this.item_id
+      }).then(data => {
+        var json = data.data
+        json.unshift({
+          cat_id: '0',
+          cat_name: this.$t('all_cat')
+        })
+        this.catalogs = json
+      })
+    },
+    changeTeamItemMemberCat(cat_id, id) {
+      this.request('/api/teamItemMember/save', {
+        cat_id: cat_id,
+        id: id
+      }).then(data => {
+        this.$message(this.$t('cat_success'))
+      })
+    },
+    memberGroupText(member_group_id, cat_name) {
+      if (member_group_id == '2') {
+        return this.$t('item_admin')
       }
-      params.append('username', queryString)
-      that.axios.post(url, params).then(response => {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          var newInfo = []
-          // 过滤掉已经是成员的用户
-          for (var i = 0; i < Info.length; i++) {
-            let isMember = that.isMember(Info[i]['value'])
-            if (!isMember) {
-              newInfo.push(Info[i])
-            }
+      if (member_group_id == '1') {
+        return this.$t('edit') + '/' + this.$t('catalog') + '：' + cat_name
+      }
+      return this.$t('readonly') + '/' + this.$t('catalog') + '：' + cat_name
+    },
+    // 获取选择之前添加过的成员名列表
+    getMyAllList() {
+      this.request('/api/member/getMyAllList', {}).then(data => {
+        this.myAllList = data.data
+      })
+    },
+    dropdownCallback(data) {
+      this.MyForm.username = data
+    },
+    getAllUser() {
+      this.request('/api/user/allUser', {
+        username: ''
+      }).then(data => {
+        var Info = data.data
+        var newInfo = []
+        // 过滤掉已经是成员的用户
+        for (var i = 0; i < Info.length; i++) {
+          let isMember = this.isMember(Info[i]['value'])
+          if (!isMember) {
+            newInfo.push(Info[i])
           }
-          that.memberOptions = []
-          for (let index = 0; index < newInfo.length; index++) {
-            that.memberOptions.push({
-              value: newInfo[index].username,
-              label: newInfo[index].name
-                ? newInfo[index].username + '(' + newInfo[index].name + ')'
-                : newInfo[index].username,
-              key: newInfo[index].username
-            })
-          }
-          cb(Info)
-        } else {
-          that.$alert(response.data.error_message)
+        }
+        this.memberOptions = []
+        for (let index = 0; index < newInfo.length; index++) {
+          this.memberOptions.push({
+            value: newInfo[index].username,
+            label: newInfo[index].name
+              ? newInfo[index].username + '(' + newInfo[index].name + ')'
+              : newInfo[index].username,
+            key: newInfo[index].username
+          })
         }
       })
     },
@@ -497,58 +520,15 @@ export default {
         }
       }
       return false
-    },
-    get_catalog() {
-      var that = this
-      var url = DocConfig.server + '/api/catalog/catListGroup'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          var Info = response.data.data
-          Info.unshift({
-            cat_id: '0',
-            cat_name: that.$t('all_cat')
-          })
-          that.catalogs = Info
-        } else {
-          that.$alert(response.data.error_message)
-        }
-      })
-    },
-    changeTeamItemMemberCat(cat_id, id) {
-      var that = this
-      var url = DocConfig.server + '/api/teamItemMember/save'
-
-      var params = new URLSearchParams()
-      params.append('cat_id', cat_id)
-      params.append('id', id)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.$message(that.$t('cat_success'))
-        } else {
-          that.$alert(response.data.error_message)
-        }
-      })
-    },
-    memberGroupText(member_group_id, cat_name) {
-      if (member_group_id == '2') {
-        return this.$t('item_admin')
-      }
-      if (member_group_id == '1') {
-        return this.$t('edit') + '/' + this.$t('catalog') + '：' + cat_name
-      }
-      return this.$t('readonly') + '/' + this.$t('catalog') + '：' + cat_name
     }
   },
 
   mounted() {
-    this.get_members()
-    this.get_teams()
+    this.getMembers()
+    this.getTeams()
     this.getTeamItem()
+    this.getCatalog()
     this.getAllUser()
-    this.get_catalog()
   }
 }
 </script>
@@ -561,11 +541,5 @@ export default {
 
 .add-member {
   margin-left: 10px;
-}
-
-.tips {
-  font-size: 12px;
-  margin-bottom: 0px;
-  margin-top: 0px;
 }
 </style>

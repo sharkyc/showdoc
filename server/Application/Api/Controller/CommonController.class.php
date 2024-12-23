@@ -59,7 +59,11 @@ class CommonController extends BaseController
 
   public function createCaptcha()
   {
-    $captcha = rand(1000, 9999);
+    if (version_compare(PHP_VERSION, COMPOSER_PHP_VERSION, '>')) {
+      $captcha = get_rand_str(4);
+    } else {
+      $captcha = rand(1000, 9999);
+    }
     $data = array(
       "mobile" => "",
       "captcha" => $captcha,
@@ -107,11 +111,13 @@ class CommonController extends BaseController
   {
     $home_page = D("Options")->get("home_page");
     $home_item = D("Options")->get("home_item");
+    $open_api_key = D("Options")->get("open_api_key");
     $beian = D("Options")->get("beian");
     $array = array(
       "home_page" => $home_page,
       "home_item" => $home_item,
       "beian" => $beian ? $beian : '',
+      "is_show_ai" => $open_api_key ? 1 : 0,
     );
     $this->sendResult($array);
   }

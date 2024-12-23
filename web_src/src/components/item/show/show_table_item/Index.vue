@@ -5,117 +5,65 @@
     @keydown.meta.83.prevent="save"
   >
     <link href="static/xspreadsheet/xspreadsheet.css" rel="stylesheet" />
-    <div id="header"></div>
-    <div class="edit-bar" v-if="item_info.item_edit">
-      <el-button type="primary" size="mini" @click="save">{{
-        $t('save')
-      }}</el-button>
-      <el-dropdown @command="dropdownCallback">
-        <el-button size="mini">
-          {{ $t('more') }}
-          <i class="el-icon-arrow-down el-icon--right"></i>
-        </el-button>
-        <el-dropdown-menu slot="dropdown">
-          <el-dropdown-item :command="shareItem">{{
-            $t('share')
-          }}</el-dropdown-item>
-          <router-link
-            :to="'/item/setting/' + item_info.item_id"
-            v-if="item_info.item_manage"
-          >
-            <el-dropdown-item>{{ $t('item_setting') }}</el-dropdown-item>
-          </router-link>
-          <el-dropdown-item
-            :command="
-              () => {
-                importDialogVisible = true
-              }
-            "
-            >{{ $t('import_file') }}</el-dropdown-item
-          >
-          <el-dropdown-item :command="exportFile">{{
-            $t('export')
-          }}</el-dropdown-item>
-          <el-dropdown-item :command="goback">{{
-            $t('goback')
-          }}</el-dropdown-item>
-        </el-dropdown-menu>
-      </el-dropdown>
-    </div>
-    <div class="edit-bar" v-if="!item_info.item_edit">
-      <el-button size="mini" @click="goback">{{ $t('goback') }}</el-button>
-    </div>
-    <div id="table-item"></div>
-    <el-dialog
-      :title="$t('share')"
-      :visible.sync="dialogVisible"
-      width="600px"
-      :close-on-click-modal="false"
-      class="text-center"
-    >
-      <p>
-        {{ $t('item_address') }} :
-        <code>{{ share_item_link }}</code>
-      </p>
-      <p>
-        <a
-          href="javascript:;"
-          class="home-phone-butt"
-          v-clipboard:copyhttplist="copyText"
-          v-clipboard:success="onCopy"
-          >{{ $t('copy_link') }}</a
-        >
-      </p>
-      <p style="border-bottom: 1px solid #eee;">
-        <img id style="width:114px;height:114px;" :src="qr_item_link" />
-      </p>
-      <span slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="dialogVisible = false">{{
-          $t('confirm')
-        }}</el-button>
-      </span>
-    </el-dialog>
+    <Header :item_info="item_info">
+      <HeaderRight
+        :item_info="item_info"
+        :exportFile="exportFile"
+        :improtFile="improtFile"
+        :save="save"
+      ></HeaderRight>
+    </Header>
 
-    <el-dialog
-      :title="$t('import_excel')"
-      :visible.sync="importDialogVisible"
-      width="600px"
-      :close-on-click-modal="false"
-      class="text-center"
+    <div id="table-item"></div>
+
+    <SDialog
+      v-if="dialogVisible"
+      :title="$t('share')"
+      :onCancel="
+        () => {
+          dialogVisible = false
+        }
+      "
+      :showCancel="false"
+      :onOK="
+        () => {
+          dialogVisible = false
+        }
+      "
+      width="500px"
     >
-      <p>
-        <input
-          type="file"
-          name="xlfile"
-          id="xlf"
-          @change="
-            e => {
-              improtFile(e.target.files)
-            }
-          "
-        />
-      </p>
-      <span slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="importDialogVisible = false">{{
-          $t('confirm')
-        }}</el-button>
-      </span>
-    </el-dialog>
+      <div class="text-center">
+        <p>
+          {{ $t('item_address') }} :
+          <code>{{ share_item_link }}</code>
+        </p>
+        <p>
+          <a
+            href="javascript:;"
+            class="home-phone-butt"
+            v-clipboard:copyhttplist="copyText"
+            v-clipboard:success="onCopy"
+            >{{ $t('copy_link') }}</a
+          >
+        </p>
+        <p style="border-bottom: 1px solid #eee;">
+          <img id style="width:114px;height:114px;" :src="qr_item_link" />
+        </p>
+      </div>
+    </SDialog>
   </div>
 </template>
 
 <style scoped>
-.edit-bar {
-  position: absolute;
-  right: 10px;
-  margin-top: 5px;
-}
-.edit-bar > button {
-  margin-right: 10px;
+#table-item {
+  margin-top: 90px;
 }
 </style>
 
 <script>
+import Header from '../Header'
+import HeaderRight from './HeaderRight'
+import { unescapeHTML } from '@/models/page'
 if (typeof window !== 'undefined') {
   var $s = require('scriptjs')
 }
@@ -137,37 +85,22 @@ export default {
       spreadsheetData: {},
       isLock: 0,
       isEditable: 0,
-      intervalId: 0,
-      importDialogVisible: false
+      intervalId: 0
     }
   },
-  components: {},
+  components: { Header, HeaderRight },
   methods: {
     getPageContent(page_id) {
-      var that = this
       if (!page_id) {
-        page_id = that.page_id
+        page_id = this.page_id
       }
       this.request('/api/page/info', {
         page_id: page_id
-      }).then(response => {
-        if (response.data.page_content) {
+      }).then(data => {
+        if (data.data.page_content) {
           let objData
           try {
-            // 先定义一个html反转义的函数
-            const unescapeHTML = str =>
-              str.replace(
-                /&amp;|&lt;|&gt;|&#39;|&quot;/g,
-                tag =>
-                  ({
-                    '&amp;': '&',
-                    '&lt;': '<',
-                    '&gt;': '>',
-                    '&#39;': "'",
-                    '&quot;': '"'
-                  }[tag] || tag)
-              )
-            objData = JSON.parse(unescapeHTML(response.data.page_content))
+            objData = JSON.parse(unescapeHTML(data.data.page_content))
           } catch (error) {
             objData = {}
           }
@@ -191,10 +124,16 @@ export default {
         mode: mode, // edit | read
         showToolbar: true,
         row: {
-          len: 500,
+          len: 800,
           height: 25
+        },
+        view: {
+          height: () => document.documentElement.clientHeight - 90
         }
       }).loadData(this.spreadsheetData) // load data
+      this.spreadsheetObj.on('cell-edited', (text, ri, ci) => {
+        this.save()
+      })
     },
 
     shareItem() {
@@ -224,32 +163,14 @@ export default {
         )
       }).then(data => {
         // console.log(data)
-        this.$message({
-          showClose: true,
-          message: '保存成功',
-          type: 'success'
-        })
+        this.autoSaveTips()
         // 删除草稿
         this.deleteDraft()
       })
     },
-    goback() {
-      this.$router.push({
-        path: '/item/index'
-      })
-      // 由于x_spreadsheet的固有缺陷，只能重新刷新销毁实例了
-      setTimeout(() => {
-        window.location.reload()
-      }, 200)
-    },
-    dropdownCallback(data) {
-      if (data) {
-        data()
-      }
-    },
+
     // 草稿
     draft() {
-      var that = this
       var pkey = 'page_content_' + this.page_id
       // 定时保存文本内容到localStorage
       setInterval(() => {
@@ -266,10 +187,9 @@ export default {
           JSON.stringify(this.spreadsheetObj.getData())
       ) {
         localStorage.removeItem(pkey)
-        that
-          .$confirm(that.$t('draft_tips'), '', {
-            showClose: false
-          })
+        this.$confirm(this.$t('draft_tips'), '', {
+          showClose: false
+        })
           .then(() => {
             this.spreadsheetData = page_content
             // 初始化表格
@@ -406,7 +326,9 @@ export default {
         if (mdata) {
           /* update x-spreadsheet */
           this.spreadsheetObj.loadData(mdata)
-          this.importDialogVisible = false
+          setTimeout(() => {
+            this.save()
+          }, 500)
         }
       }
       reader.readAsArrayBuffer(f)
@@ -435,6 +357,16 @@ export default {
         client.open('POST', url, false)
         client.send(analyticsData)
       }
+    },
+    autoSaveTips() {
+      const s = localStorage.getItem('table_item_auto_save_tips')
+      if (!s) {
+        this.$alert(this.$t('table_item_auto_save_tips'), '', {
+          confirmButtonText: this.$t('do_not_remind_again')
+        }).then(() => {
+          localStorage.setItem('table_item_auto_save_tips', 1)
+        })
+      }
     }
   },
   mounted() {
@@ -449,7 +381,7 @@ export default {
           `static/xspreadsheet/locale/en.js`
         ],
         () => {
-          if (DocConfig.lang == 'en') {
+          if (this.$lang == 'en') {
             x_spreadsheet.locale('en')
           } else {
             x_spreadsheet.locale('zh-cn')
@@ -470,6 +402,9 @@ export default {
     clearInterval(this.intervalId)
     this.unlock()
     window.removeEventListener('beforeunload', this.unLockOnClose)
+    setTimeout(() => {
+      this.reload()
+    }, 500)
   }
 }
 </script>

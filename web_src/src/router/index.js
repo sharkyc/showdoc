@@ -2,11 +2,10 @@ import Vue from 'vue'
 import Router from 'vue-router'
 import Index from '@/components/Index'
 import UserLogin from '@/components/user/Login'
-import UserSetting from '@/components/user/Setting'
+import UserSetting from '@/components/user/setting/Index'
 import UserRegister from '@/components/user/Register'
-import UserResetPassword from '@/components/user/ResetPassword'
-import ResetPasswordByUrl from '@/components/user/ResetPasswordByUrl'
-import ItemIndex from '@/components/item/Index'
+import loginByUserToken from '@/components/user/loginByUserToken'
+import ItemIndex from '@/components/item/home/Index'
 import ItemAdd from '@/components/item/add/Index'
 import ItemPassword from '@/components/item/Password'
 import ItemShow from '@/components/item/show/Index'
@@ -16,7 +15,6 @@ import PageIndex from '@/components/page/Index'
 import PageEdit from '@/components/page/edit/Index'
 import PageDiff from '@/components/page/Diff'
 import Catalog from '@/components/catalog/Index'
-import Notice from '@/components/notice/Index'
 import Admin from '@/components/admin/Index'
 import Team from '@/components/team/Index'
 import TeamMember from '@/components/team/Member'
@@ -48,16 +46,6 @@ export default new Router({
       path: '/user/register',
       name: 'UserRegister',
       component: UserRegister
-    },
-    {
-      path: '/user/resetPassword',
-      name: 'UserResetPassword',
-      component: UserResetPassword
-    },
-    {
-      path: '/user/ResetPasswordByUrl',
-      name: 'ResetPasswordByUrl',
-      component: ResetPasswordByUrl
     },
     {
       path: '/item/index',
@@ -109,11 +97,7 @@ export default new Router({
       name: 'Catalog',
       component: Catalog
     },
-    {
-      path: '/notice/index',
-      name: 'Notice',
-      component: Notice
-    },
+
     {
       path: '/admin/index',
       name: 'Admin',
@@ -148,6 +132,11 @@ export default new Router({
       path: '/message/index',
       name: 'Message',
       component: Message
+    },
+    {
+      path: '/user/loginByUserToken',
+      name: 'loginByUserToken',
+      component: loginByUserToken
     },
 
     // -------新路由加在分割线前面---------------

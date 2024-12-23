@@ -24,6 +24,17 @@ class ExportController extends BaseController
             return;
         }
 
+        // 如果改用户是项目成员，且只分配了单个目录权限
+        $tmpRes = D("ItemMember")->where(" item_id = '$item_id' and uid = '$login_user[uid]' and cat_id > 0 ")->find();
+        if ($tmpRes) {
+            $cat_id = $tmpRes['cat_id'];
+        }
+        // 如果改用户是团队成员，且只分配了该项目的单个目录权限
+        $tmpRes = D("TeamItemMember")->where(" item_id = '$item_id' and member_uid = '$login_user[uid]' and cat_id > 0 ")->find();
+        if ($tmpRes) {
+            $cat_id = $tmpRes['cat_id'];
+        }
+
         $item = D("Item")->where("item_id = '$item_id' ")->find();
 
 
@@ -41,13 +52,23 @@ class ExportController extends BaseController
                             if ($cat_id == $value2['cat_id']) {
                                 $pages = $value2['pages'];
                                 $catalogs = $value2['catalogs'];
-                            }
-                        }
-                        if ($value2['catalogs']) {
-                            foreach ($value2['catalogs'] as $key3 => $value3) {
-                                if ($cat_id == $value3['cat_id']) {
-                                    $pages = $value3['pages'];
-                                    $catalogs = $value3['catalogs'];
+                            } else {
+                                if ($value2['catalogs']) {
+                                    foreach ($value2['catalogs'] as $key3 => $value3) {
+                                        if ($cat_id == $value3['cat_id']) {
+                                            $pages = $value3['pages'];
+                                            $catalogs = $value3['catalogs'];
+                                        } else {
+                                            if ($value3['catalogs']) {
+                                                foreach ($value3['catalogs'] as $key4 => $value4) {
+                                                    if ($cat_id == $value4['cat_id']) {
+                                                        $pages = $value4['pages'];
+                                                        $catalogs = $value4['catalogs'];
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -204,6 +225,13 @@ class ExportController extends BaseController
         header('Content-Length: ' . filesize($temp_file)); // 告诉浏览器，文件大小
         @readfile($temp_file); //输出文件;
         unlink($temp_file);
+    }
+
+    public function checkMarkdownLimit()
+    {
+        $login_user = $this->checkLogin();
+        $export_format =  I("export_format");
+        $this->sendResult(array());
     }
 
     private function _markdownTofile($catalogData,  $temp_dir)

@@ -16,7 +16,7 @@ class UpdateModel
     //检测数据库并更新
     public function checkDb()
     {
-        $version_num = 13;
+        $version_num = 19;
         $db_version_num = D("Options")->get("db_version_num");
         if (!$db_version_num || $db_version_num < $version_num) {
             $r = $this->updateSqlite();
@@ -149,6 +149,12 @@ class UpdateModel
         if (!$this->_is_column_exist("Page", "is_del")) {
             $sql = "ALTER TABLE " . C('DB_PREFIX') . "page ADD is_del INT( 1 ) NOT NULL DEFAULT '0'  ;";
             D("ItemMember")->execute($sql);
+        }
+
+        //page表增加page_addtime字段
+        if (!$this->_is_column_exist("Page", "page_addtime")) {
+            $sql = "ALTER TABLE " . C('DB_PREFIX') . "page ADD page_addtime INT( 11 ) NOT NULL DEFAULT '0'  ;";
+            D("Page")->execute($sql);
         }
 
         //创建team表
@@ -492,6 +498,49 @@ class UpdateModel
             $sql = "ALTER TABLE " . C('DB_PREFIX') . "team_member ADD team_member_group_id int(10) NOT NULL DEFAULT '1' ;";
             D("mock")->execute($sql);
         }
+
+        //给user表增加salt字段
+        if (!$this->_is_column_exist("user", "salt")) {
+            $sql = "ALTER TABLE " . C('DB_PREFIX') . "user ADD salt CHAR(2000) NOT NULL DEFAULT '' ;";
+            D("mock")->execute($sql);
+        }
+
+        //创建item_star表
+        $sql = "CREATE TABLE IF NOT EXISTS `item_star` (
+            `id`  INTEGER PRIMARY KEY ,
+            `uid` int(11) NOT NULL DEFAULT '0',
+            `item_id` int(11) NOT NULL DEFAULT '0',
+            `s_number` int(11) NOT NULL DEFAULT '0',
+            `created_at` CHAR(2000) NOT NULL DEFAULT '',
+            `updated_at` CHAR(2000) NOT NULL DEFAULT ''
+            )";
+        D("User")->execute($sql);
+
+        //给page表增加ext_info字段
+        if (!$this->_is_column_exist("page", "ext_info")) {
+            $sql = "ALTER TABLE " . C('DB_PREFIX') . "page ADD ext_info CHAR(2000) NOT NULL DEFAULT '' ;";
+            D("page")->execute($sql);
+        }
+
+        //给page_history表增加ext_info字段
+        if (!$this->_is_column_exist("page_history", "ext_info")) {
+            $sql = "ALTER TABLE " . C('DB_PREFIX') . "page_history ADD ext_info CHAR(2000) NOT NULL DEFAULT '' ;";
+            D("page")->execute($sql);
+        }
+
+        // 检查 upload_file 表是否有 last_visit_time 字段，如果没有则添加
+        if (!$this->_is_column_exist("upload_file", "last_visit_time")) {
+            $sql = "ALTER TABLE " . C('DB_PREFIX') . "upload_file ADD last_visit_time INT(11) NOT NULL DEFAULT '0';";
+            D("User")->execute($sql);
+        }
+
+        // 设置自增id从 10000000 开始
+        $randomNumber1 = mt_rand(100000000, 299999999);
+        $randomNumber2 = mt_rand(400000000, 499999999);
+        $randomNumber3 = mt_rand(600000000, 699999999);
+        D("page")->execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('page', {$randomNumber1})");
+        D("page")->execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('catalog', {$randomNumber2})");
+        D("page")->execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('item', {$randomNumber3})");
 
         //留个注释提醒自己，如果更新数据库结构，务必更改checkDb()里面的$version_num
         //留个注释提醒自己，如果更新数据库结构，务必更改checkDb()里面的$version_num

@@ -1,112 +1,408 @@
 <template>
-  <div :class="hideScrollbar ? 'hide-scrollbar' : 'normal-scrollbar'">
-    <i
-      class="el-icon-menu header-left-btn"
-      v-if="show_menu_btn"
-      id="header-left-btn"
-      @click="show_menu"
-    ></i>
-    <i
-      class="el-icon-menu header-left-btn"
-      v-if="show_menu_btn"
-      id="header-left-btn"
-      @click="show_menu"
-    ></i>
-    <el-aside
-      :class="menuMarginLeft"
-      id="left-side-menu"
-      :width="asideWidth"
-      @mouseenter.native="hideScrollbar = false"
-      @mouseleave.native="hideScrollbar = true"
-    >
-      <el-menu
-        @select="select_menu"
-        background-color="#fafafa"
-        text-color
-        active-text-color="#008cff"
-        :default-active="item_info.default_page_id"
-        :default-openeds="openeds"
+  <div class="hide-scrollbar">
+    <div id="left-side-menu">
+      <el-input
+        @keyup.enter.native="inputKeyword"
+        :placeholder="$t('input_keyword')"
+        class="search-box"
+        :clearable="true"
+        @clear="searchItem()"
+        size="small"
+        v-model="keyword"
+        suffix-icon="el-icon-search"
       >
-        <el-input
-          @keyup.enter.native="input_keyword"
-          :placeholder="$t('input_keyword')"
-          class="search-box"
-          :clearable="true"
-          @clear="search_item()"
-          size="medium"
-          v-model="keyword"
-        ></el-input>
-
-        <!-- 一级页面 -->
-        <template v-if="menu.pages && menu.pages.length">
-          <el-menu-item
-            v-for="page in menu.pages"
-            :index="page.page_id"
-            :key="page.page_id"
+      </el-input>
+      <el-tree
+        ref="tree"
+        :data="menu"
+        v-if="menu && menu.length > 0"
+        :props="defaultProps"
+        @node-click="handleNodeClick"
+        node-key="id"
+        :default-expanded-keys="openeds"
+        :draggable="item_info.item_edit ? true : false"
+        :allow-drop="allowDrop"
+        @node-drag-end="handleDragEnd"
+        :auto-expand-parent="false"
+      >
+        <span
+          class="custom-tree-node"
+          @contextmenu.prevent="
+            e => {
+              if (item_info.item_edit) {
+                showContextMenu(e, node.data)
+              }
+            }
+          "
+          slot-scope="{ node, data }"
+        >
+          <span
+            v-if="node.data.type === 'folder'"
+            class="custom-tree-node node-folder"
+            :id="'node-' + node.data.id"
           >
-            <i class="el-icon-document"></i>
-            <a
-              :href="randerUrl(page.page_id)"
-              @click.prevent="() => {}"
-              :title="page.page_title"
-              :id="'left_page_' + page.page_id"
-              >{{ page.page_title }}</a
-            >
-          </el-menu-item>
-        </template>
+            <i
+              v-if="openeds.includes(node.data.id) && node.data.children.length"
+              class="mr-2 far fa-folder-open"
+            ></i>
+            <i v-else class="mr-2 far fa-folder-closed"></i>
+            <span class="node-label">{{ node.label }}</span>
+          </span>
+          <span
+            v-else
+            class="custom-tree-node node-page"
+            :id="'node-' + node.data.id"
+          >
+            <i class="mr-2 fas fa-file-alt"></i>
+            <span class="node-label">{{ node.label }}</span>
+          </span>
 
-        <!-- 目录开始 -->
-        <LeftMenuSub
-          v-if="menu.catalogs && menu.catalogs.length"
-          :catalog="menu.catalogs"
-          :item_info="item_info"
-        ></LeftMenuSub>
-      </el-menu>
-    </el-aside>
+          <span v-if="item_info.item_edit" class="node-tool">
+            <span
+              class=""
+              @click.stop.prevent="showContextMenu($event, node.data)"
+            >
+              <i class="mr-3 fas fa-ellipsis"></i>
+            </span>
+          </span>
+        </span>
+      </el-tree>
+
+      <!-- 新建/编辑/复制页面 -->
+      <PageEdit
+        v-if="showPageEdit"
+        :edit_page_id="editPageId"
+        :item_id="item_info.item_id"
+        :copy_page_id="copyPageId"
+        :callback="
+          () => {
+            showPageEdit = false
+            $store.dispatch('reloadItem')
+          }
+        "
+      ></PageEdit>
+
+      <!-- 目录管理 -->
+      <Catalog
+        v-if="showCatalog"
+        :item_id="item_id"
+        :callback="
+          () => {
+            showCatalog = false
+            $store.dispatch('reloadItem')
+          }
+        "
+      ></Catalog>
+
+      <!-- 历史版本 -->
+      <HistoryVersion
+        :page_id="editPageId"
+        :is_show_recover_btn="false"
+        :is_modal="false"
+        v-if="showHistoryVersiong"
+        :callback="
+          data => {
+            this.showHistoryVersiong = false
+          }
+        "
+        :cancel="
+          data => {
+            this.showHistoryVersiong = false
+          }
+        "
+      ></HistoryVersion>
+
+      <CopyCatalog
+        v-if="showCopyCatalog"
+        :item_id="item_info.item_id"
+        :cat_id="editCatId"
+        :callback="
+          () => {
+            $store.dispatch('reloadItem')
+          }
+        "
+      ></CopyCatalog>
+    </div>
   </div>
 </template>
 
 <script>
-import LeftMenuSub from './LeftMenuSub.vue'
+import ContextmenuModal from '@/components/common/ContextmenuModal/index.js'
+import PageEdit from '@/components/page/edit/Index'
+import Catalog from '@/components/catalog/Index'
+import HistoryVersion from '@/components/page/edit/HistoryVersion'
+import CopyCatalog from '@/components/catalog/Copy'
+import { itemMenuDataToTreeData, getParentIds } from '@/models/itemTree'
 
 export default {
   props: {
-    get_page_content: '',
+    getPageContent: '',
     item_info: '',
-    search_item: '',
+    searchItem: () => {},
     keyword: ''
   },
+  components: { PageEdit, Catalog, HistoryVersion, CopyCatalog },
   data() {
     return {
       openeds: [],
       menu: '',
       show_menu_btn: false,
       hideScrollbar: true,
-      asideWidth: '250px',
-      menuMarginLeft: 'menu-margin-left1'
+      menuMarginLeft: 'menu-margin-left1',
+      expandCollapseCatalogStatus: '0', // 目录状态。0：无设置；1：展开全部；2：折叠全部
+      defaultProps: {
+        children: 'children',
+        label: 'title'
+      },
+      copyPageId: 0,
+      editPageId: 0,
+      showPageEdit: false,
+      showCatalog: false,
+      showRecycle: false,
+      showHistoryVersiong: false,
+      showCopyCatalog: false,
+      editCatId: 0
     }
   },
-  components: {
-    LeftMenuSub
-  },
   methods: {
+    showContextMenu(e, data) {
+      ContextmenuModal({
+        x: e.x,
+        y: e.y,
+        list:
+          data.type === 'folder'
+            ? this.catContextmenu(data)
+            : this.pageContextmenu(data)
+      })
+    },
+    pageContextmenu(nodeData) {
+      return [
+        {
+          icon: 'fas fa-edit',
+          text: this.$t('edit_page'),
+          onclick: () => {
+            this.editPageId = nodeData.page_id
+            this.showPageEdit = true
+          }
+        },
+        {
+          icon: 'fas fa-copy',
+          text: this.$t('copy_page'),
+          onclick: () => {
+            this.editPageId = 0
+            this.copyPageId = nodeData.page_id
+            this.showPageEdit = true
+          }
+        },
+        {
+          icon: 'fas fa-circle-info',
+          text: this.$t('page_info'),
+          onclick: () => {
+            this.request('/api/page/info', {
+              page_id: nodeData.page_id
+            }).then(pageData => {
+              const html =
+                '本页面由 ' +
+                pageData.data.author_username +
+                ' 于 ' +
+                pageData.data.addtime +
+                ' 更新'
+              this.$alert(html)
+            })
+          }
+        },
+        {
+          icon: 'fas fa-rectangle-history',
+          text: this.$t('page_history_version'),
+          onclick: () => {
+            this.editPageId = nodeData.page_id
+            this.showHistoryVersiong = true
+          }
+        },
+        {
+          icon: 'fas fa-trash-can',
+          text: this.$t('delete_page'),
+          onclick: () => {
+            const page_id = nodeData.page_id
+            this.$confirm(this.$t('comfirm_delete'), ' ', {
+              confirmButtonText: this.$t('confirm'),
+              cancelButtonText: this.$t('cancel'),
+              type: 'warning'
+            }).then(() => {
+              this.request('/api/page/delete', {
+                page_id: page_id
+              }).then(data => {
+                this.$store.dispatch('reloadItem')
+              })
+            })
+          }
+        }
+      ]
+    },
+    catContextmenu(nodeData) {
+      return [
+        {
+          icon: 'fas fa-plus',
+          text: this.$t('add_sub_page'),
+          onclick: () => {
+            this.$store.dispatch('changeOpenCatId', nodeData.cat_id)
+            this.editPageId = 0
+            this.showPageEdit = true
+          }
+        },
+        {
+          icon: 'fas fa-folder-tree',
+          text: this.$t('add_sub_cat'),
+          onclick: () => {
+            this.$prompt('', '').then(data => {
+              this.request('/api/catalog/save', {
+                item_id: this.item_info.item_id,
+                cat_id: 0,
+                parent_cat_id: nodeData.cat_id,
+                cat_name: data.value
+              }).then(data => {
+                this.$store.dispatch('reloadItem')
+              })
+            })
+          }
+        },
+        {
+          icon: 'fas fa-folder-plus',
+          text: this.$t('add_si_bling_cat'),
+          onclick: () => {
+            this.$prompt('', '').then(data => {
+              this.request('/api/catalog/save', {
+                item_id: this.item_info.item_id,
+                cat_id: 0,
+                parent_cat_id: nodeData.parent_cat_id,
+                cat_name: data.value
+              }).then(data => {
+                this.$store.dispatch('reloadItem')
+              })
+            })
+          }
+        },
+        {
+          icon: 'fas fa-edit',
+          text: this.$t('edt_cat'),
+          onclick: () => {
+            this.$prompt('', '', { inputValue: nodeData.title }).then(data => {
+              this.request('/api/catalog/save', {
+                item_id: this.item_info.item_id,
+                cat_id: nodeData.cat_id,
+                parent_cat_id: nodeData.parent_cat_id,
+                cat_name: data.value
+              }).then(data => {
+                this.$store.dispatch('reloadItem')
+              })
+            })
+          }
+        },
+        {
+          icon: 'fas fa-clone',
+          text: this.$t('clone_move'),
+          onclick: () => {
+            this.editCatId = nodeData.cat_id
+            this.showCopyCatalog = true
+          }
+        },
+        {
+          icon: 'fas fa-trash-can',
+          text: this.$t('delete'),
+          onclick: () => {
+            const cat_id = nodeData.cat_id
+            this.$confirm(this.$t('confirm_cat_delete'), ' ', {
+              confirmButtonText: this.$t('confirm'),
+              cancelButtonText: this.$t('cancel'),
+              type: 'warning'
+            }).then(() => {
+              this.request('/api/catalog/delete', {
+                item_id: this.item_info.item_id,
+                cat_id: cat_id
+              }).then(data => {
+                this.$store.dispatch('reloadItem')
+              })
+            })
+          }
+        }
+      ]
+    },
+    // 根据page_id ，获取树状数据的目录id们
+
+    // 判断节点是否可以被拖曳。比如说，就不会拖曳进 页面 节点里
+    allowDrop(draggingNode, dropNode, type) {
+      if (type == 'inner' && dropNode.data.page_id > 0) {
+        // 不可以拖动到页面节点内部
+        return false
+      }
+      return true
+    },
+    handleDragEnd() {
+      const treeData = this.menu
+      // 将拖动的顺序和层级信息保存到后台
+
+      // 如果是搜索结果，则不保存目录层级关系到后台
+      if (this.keyword) {
+        return false
+      }
+
+      // 先定义一个函数，将目录数组降维
+      const dimensionReduction = treeData => {
+        const treeData2 = []
+
+        const pushTreeData = (OneData, parent_cat_id, level, i) => {
+          treeData2.push({
+            cat_id: OneData.cat_id || 0,
+            cat_name: OneData.title || '',
+            page_id: OneData.page_id || 0,
+            parent_cat_id: parent_cat_id || 0,
+            page_cat_id: parent_cat_id || 0,
+            level,
+            s_number: i + 1
+          })
+          if (OneData.hasOwnProperty('children')) {
+            for (let j = 0; j < OneData.children.length; j++) {
+              pushTreeData(OneData.children[j], OneData.cat_id, level + 1, j)
+            }
+          }
+        }
+
+        for (let i = 0; i < treeData.length; i++) {
+          pushTreeData(treeData[i], 0, 2, i)
+        }
+        return treeData2
+      }
+      // 开始执行这个函数
+      const tdata = dimensionReduction(treeData)
+      this.request('/api/catalog/batUpdate', {
+        item_id: this.item_info.item_id,
+        cats: JSON.stringify(tdata)
+      })
+    },
+    handleNodeClick(data) {
+      if (data.page_id) {
+        this.selectMenu(data.page_id)
+      }
+      if (data.type == 'folder') {
+        // 如果点击的是目录，则展开目录
+        const list = this.openeds
+        const findIndex = list.findIndex(v => v === data.id)
+        if (findIndex === -1) {
+          list.push(data.id)
+        } else {
+          list.splice(findIndex, 1)
+        }
+        this.openeds = list
+      }
+    },
     // 选中菜单的回调
-    select_menu(index, indexPath) {
-      this.change_url(index)
-      this.get_page_content(index)
+    selectMenu(page_id) {
+      this.changeUrl(page_id)
+      this.getPageContent(page_id)
+      this.$refs.tree.setCurrentKey(`page_${page_id}`)
     },
-    new_page() {
-      var url = '/page/edit/' + this.item_info.item_id + '/0'
-      this.$router.push({ path: url })
-    },
-
-    mamage_catalog() {
-      var url = '/catalog/' + this.item_info.item_id
-      this.$router.push({ path: url })
-    },
-
-    // 改变url
-    change_url(page_id) {
+    // 改变url.
+    changeUrl(page_id) {
       if (
         page_id > 0 &&
         (page_id == this.$route.query.page_id ||
@@ -122,20 +418,19 @@ export default {
       })
     },
 
-    input_keyword() {
-      this.search_item(this.keyword)
+    inputKeyword() {
+      this.searchItem(this.keyword)
     },
-    show_menu() {
+    showMenu() {
       this.show_menu_btn = false
       var element = document.getElementById('left-side-menu')
       element.style.display = 'block'
       element.style.marginLeft = '0px'
       element.style.marginTop = '0px'
-      element.style.position = 'static'
       element = document.getElementById('p-content')
       element.style.display = 'none'
     },
-    hide_menu() {
+    hideMenu() {
       this.show_menu_btn = true
       var element = document.getElementById('left-side-menu')
       element.style.display = 'none'
@@ -149,49 +444,26 @@ export default {
       var domain = this.item_info.item_domain
         ? this.item_info.item_domain
         : this.item_info.item_id
-      return '#/' + domain + '/' + page_id
+      return '/' + domain + '/' + page_id
     }
   },
   mounted() {
-    var that = this
-    this.menu = this.item_info.menu
-    var item_info = this.item_info
+    this.menu = itemMenuDataToTreeData(this.item_info.menu)
     // 默认展开页面
-    if (item_info.default_page_id > 0) {
-      that.select_menu(item_info.default_page_id)
-      if (item_info.default_cat_id4) {
-        that.openeds = [
-          item_info.default_cat_id4,
-          item_info.default_cat_id3,
-          item_info.default_cat_id2,
-          item_info.default_page_id
-        ]
-      } else if (item_info.default_cat_id3) {
-        that.openeds = [
-          item_info.default_cat_id3,
-          item_info.default_cat_id2,
-          item_info.default_page_id
-        ]
-      } else if (item_info.default_cat_id2) {
-        that.openeds = [item_info.default_cat_id2, item_info.default_page_id]
+    const page_id = this.item_info.default_page_id
+      ? this.item_info.default_page_id
+      : 0
+    if (page_id) {
+      const openeds = getParentIds(this.menu, page_id)
+      if (openeds) {
+        this.openeds = openeds
+        // 延迟把左侧栏滚动到默认展开的那个页面，同时设置选中当前页面
+        setTimeout(() => {
+          const element = document.querySelector('#node-page_' + page_id)
+          element.scrollIntoView()
+          this.selectMenu(page_id)
+        }, 1000)
       }
-      // 延迟把左侧栏滚动到默认展开的那个页面
-      setTimeout(() => {
-        const element = document.querySelector(
-          '#left_page_' + item_info.default_page_id
-        )
-        element.scrollIntoView()
-      }, 1000)
-    }
-
-    // 如果是大屏幕且存在目录，则把侧边栏调大
-    if (
-      window.screen.width >= 1600 &&
-      this.menu.catalogs &&
-      this.menu.catalogs.length > 0
-    ) {
-      this.asideWidth = '300px'
-      this.menuMarginLeft = 'menu-margin-left2'
     }
   }
 }
@@ -199,71 +471,14 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-.el-header {
-  color: #333;
-  line-height: 60px;
-}
-
 #left-side-menu {
   color: #333;
   position: fixed;
-  margin-top: -20px;
-  height: calc(100% - 90px);
-}
-.menu-margin-left1 {
-  margin-left: -273px;
-}
-.menu-margin-left2 {
-  margin-left: -323px;
-}
-
-.el-input-group__append button.el-button {
-  background-color: #ffffffa3;
-}
-
-.el-menu {
-  border-right: none;
-}
-
-.icon-folder {
-  width: 18px;
-  height: 15px;
-  cursor: pointer;
-}
-
-.menu-icon-folder {
-  margin-right: 5px;
-  margin-top: -5px;
-}
-
-.el-menu-item,
-.el-submenu__title {
-  height: 46px;
-  line-height: 46px;
-}
-.el-submenu .el-menu-item {
-  height: 40px;
-  line-height: 40px;
-}
-.el-menu-item {
-  line-height: 40px;
-  height: 40px;
-  font-size: 12px;
-}
-.el-menu-item [class^='el-icon-'] {
-  font-size: 17px;
-  margin-bottom: 4px;
-}
-.el-submenu__title img {
-  width: 14px;
-  cursor: pointer;
-  margin-left: 5px;
+  height: calc(100% - 150px);
+  overflow: scroll;
   margin-right: 10px;
-  margin-bottom: 4px;
-}
-.search-box {
-  padding: 0px 20px 0px 20px;
-  box-sizing: border-box;
+  width: 300px;
+  background: #f9f9f9;
 }
 
 /*隐藏滚动条*/
@@ -274,45 +489,74 @@ export default {
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+  overflow: hidden;
 }
 
-.header-left-btn {
-  font-size: 20px;
-  margin-top: 5px;
-  cursor: pointer;
-  position: fixed;
-}
-.el-menu-item:not(.is-active) a {
-  color: #303133;
-}
-</style>
-<style type="text/css">
-#left-side-menu .el-input__inner {
-  background-color: #fafafa !important;
-  padding-right: 10px;
+.search-box {
+  box-sizing: border-box;
+  width: calc(100% - 10px);
+  margin-bottom: 5px;
+  border-color: #0000001a;
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
-.hide-scrollbar .el-submenu__title {
-  font-size: 12px;
+.search-box >>> input {
+  border-radius: 6px;
+  height: 40px;
+  border-color: #0000001a;
+}
+
+#left-side-menu >>> .el-tree {
+  margin-left: 10px;
+}
+
+#left-side-menu >>> .el-tree-node {
+  background: #f9f9f9;
+}
+
+#left-side-menu >>> .el-tree-node__content {
+  min-height: 40px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+#left-side-menu >>> .el-tree-node__content:hover,
+#left-side-menu >>> .is-current .el-tree-node__content {
+  background-color: #ffffff;
+  border-radius: 6px;
+  /* margin-top: 2px; */
+}
+
+#left-side-menu
+  >>> .is-current
+  > .el-tree-node__content
+  .node-page
+  .node-label {
+  color: #409eff;
+  font-weight: 700;
+}
+
+#left-side-menu >>> .custom-tree-node {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.hide-scrollbar li {
-  /* white-space: normal;*/
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: 100%;
 }
 
-.normal-scrollbar .el-submenu__title {
-  font-size: 12px;
-}
-.normal-scrollbar li {
-  font-size: 12px;
+#left-side-menu >>> .node-tool {
+  position: absolute;
+  right: 0;
+  opacity: 0;
+  transition: opacity 10ms 10ms ease-in-out;
+  cursor: pointer;
 }
 
-#left-side-menu .el-input__suffix {
-  right: 25px;
-  padding-right: 10px;
+#left-side-menu >>> .el-tree-node__content:hover .node-tool {
+  opacity: 1;
+}
+
+#left-side-menu >>> .node-page i {
+  opacity: 0.3;
 }
 </style>

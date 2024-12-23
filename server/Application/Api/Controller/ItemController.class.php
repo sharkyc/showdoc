@@ -56,6 +56,15 @@ class ItemController extends BaseController
         $login_user = session("login_user");
         $uid = $login_user['uid'] ? $login_user['uid'] : 0;
         $is_login =   $uid > 0 ? true : false;
+
+        $force_login = D("Options")->get("force_login");
+        if($force_login > 0 ){
+            // 如果管理员设置了强制登录，则对 未登录的游客 返回未登录状态
+            if(!$is_login){
+                $this->sendError(10312);
+                return ;
+            }
+        }
         $menu = array(
             "pages" => array(),
             "catalogs" => array(),
@@ -64,7 +73,10 @@ class ItemController extends BaseController
         if ($keyword) {
             $keyword = strtolower($keyword);
             $keyword = \SQLite3::escapeString($keyword);
-            $pages = D("Page")->where("item_id = '$item_id' and is_del = 0  and ( lower(page_title) like '%{$keyword}%' or lower(page_content) like '%{$keyword}%' ) ")->order(" s_number asc  ")->field("page_id,author_uid,cat_id,page_title,addtime")->select();
+            $where = "item_id = '$item_id' and is_del = 0  and ( lower(page_title) like '%{$keyword}%' or lower(page_content) like '%{$keyword}%' ) " ;
+            // 如果用户被分配了 目录权限 ，则获取他在该项目下拥有权限的目录id
+            $cat_id = D("Member")->getCatId($item_id, $uid);
+            $menu['pages'] = $pages = D("Page")->search($item_id, $cat_id, $keyword);
             $menu['pages'] = $pages ? $pages : array();
             $menu['catalogs'] = array();
         } else {
@@ -158,8 +170,7 @@ class ItemController extends BaseController
     {
         $login_user = $this->checkLogin();
         $original = I("original/d") ? I("original/d") : 0; //1：只返回自己原创的项目;默认是0 
-        $item_group_id = I("item_group_id/d") ? I("item_group_id/d") : 0; //项目分组id。默认是0
-
+        $item_group_id = I("item_group_id/d") ? I("item_group_id/d") : 0; //项目分组id。默认是0,即所有项目。当为-1的时候，表示返回标星项目
         $where = "uid = '$login_user[uid]' ";
         $member_item_ids = array(-1); // 所有 只读和编辑成员 的项目
         $manage_member_item_ids = array(-1); // 所有拥有项目管理权限的成员的项目
@@ -193,12 +204,35 @@ class ItemController extends BaseController
 
         $where .= " or item_id in ( " . implode(",", $member_item_ids) . " ) ";
         $where .= " or item_id in ( " . implode(",", $manage_member_item_ids) . " ) ";
-        if ($item_group_id) {
+        if ($item_group_id > 0) {
             $res = D("ItemGroup")->where(" id = '$item_group_id' ")->find();
-            if ($res) {
+            if ($res && $res['item_ids']) {
                 $where = " ({$where}) and item_id in ({$res['item_ids']}) ";
+            } else {
+                $where = " ({$where}) and item_id in (-1) ";
             }
         }
+
+        $star_item_id_array = array();
+        // 将star的项目都先读取出来，因为后面有两处需要用到：返回项目是否已经被标星字段，根据标星返回所有标星项目
+        $res = D("ItemStar")->where(" uid = '$login_user[uid]' ")->select();
+
+        if ($res) {
+            foreach ($res as $key => $value) {
+                $star_item_id_array[] = intval($value['item_id']);
+            }
+        }
+
+        // 当强等于-1的时候。表示筛选出星标项目
+        if ($item_group_id === -1) {
+            if ($star_item_id_array) {
+                $star_item_ids = implode(",", $star_item_id_array);
+                $where = " ({$where}) and item_id in ({$star_item_ids}) ";
+            } else {
+                $where = " ({$where}) and item_id in (0) ";
+            }
+        }
+
         $items  = D("Item")->field("item_id,uid,item_name,item_domain,item_type,last_update_time,item_description,is_del,password")->where($where)->order("item_id asc")->select();
 
 
@@ -225,11 +259,19 @@ class ItemController extends BaseController
             //如果项目已标识为删除
             if ($value['is_del'] == 1) {
                 unset($items[$key]);
+                continue;
             }
 
             //如果有参数指定了只返回原创项目
             if ($original > 0 && $value['uid'] != $login_user['uid']) {
                 unset($items[$key]);
+                continue;
+            }
+            // 判断项目是否被标星
+            if (in_array(intval($value['item_id']), $star_item_id_array)) {
+                $items[$key]['is_star'] = 1;
+            } else {
+                $items[$key]['is_star'] = 0;
             }
         }
         $items = array_values($items);
@@ -515,35 +557,46 @@ class ItemController extends BaseController
     //验证访问密码
     public function pwd()
     {
-        $item_id = I("post.item_id/d");
+        $item_id = I("item_id");
+        $page_id = I("page_id/d");
         $password = I("password");
-        $v_code = I("v_code");
         $refer_url = I('refer_url');
+        $captcha_id = I("captcha_id");
+        $captcha = I("captcha");
 
-        //检查用户输错密码的次数。如果超过一定次数，则需要验证 验证码
-        $key = 'item_pwd_fail_times_' . $item_id;
-        if (!D("VerifyCode")->_check_times($key, 10)) {
-            if (!$v_code || $v_code != session('v_code')) {
-                $this->sendError(10206, L('verification_code_are_incorrect'));
-                return;
+        if (!D("Captcha")->check($captcha_id, $captcha)) {
+            $this->sendError(10206, L('verification_code_are_incorrect'));
+            return;
+        }
+
+        if (!is_numeric($item_id)) {
+            $item_domain = $item_id;
+        }
+        //判断个性域名
+        if ($item_domain) {
+            $item = D("Item")->where("item_domain = '%s'", array($item_domain))->find();
+            if ($item['item_id']) {
+                $item_id = $item['item_id'];
             }
         }
-        session('v_code', null);
-        $item = D("Item")->where("item_id = '$item_id' ")->find();
-        if ($item['password'] == $password) {
-            session("visit_item_" . $item_id, 1);
+
+        $item_id =  \SQLite3::escapeString($item_id);
+
+        if ($page_id > 0) {
+            $page = M("Page")->where(" page_id = '$page_id' ")->find();
+            if ($page) {
+                $item_id = $page['item_id'];
+            }
+        }
+        $item = D("Item")->where("item_id = '%d'", array($item_id))->find();
+        if ($password && $item['password'] == $password) {
+            session("visit_item_" . $item['item_id'], 1);
             $this->sendResult(array("refer_url" => base64_decode($refer_url)));
         } else {
-            D("VerifyCode")->_ins_times($key); //输错密码则设置输错次数
-
-            if (D("VerifyCode")->_check_times($key, 10)) {
-                $error_code = 10307;
-            } else {
-                $error_code = 10308;
-            }
-            $this->sendError($error_code, L('access_password_are_incorrect'));
+            $this->sendError(10010, L('access_password_are_incorrect'));
         }
     }
+
 
     public function itemList()
     {
@@ -559,10 +612,11 @@ class ItemController extends BaseController
         $login_user = $this->checkLogin();
         $item_name = I("post.item_name");
         $item_domain = I("item_domain") ? I("item_domain") : '';
-        $copy_item_id = I("copy_item_id");
+        $copy_item_id = I("copy_item_id/d");
         $password = I("password");
         $item_description = I("item_description");
         $item_type = I("item_type") ? I("item_type") : 1;
+        $item_group_id = I("item_group_id/d") ? I("item_group_id/d") : 0;
         if (!$item_name) {
             $this->sendError(10100, '项目名不能为空');
             return false;
@@ -620,7 +674,8 @@ class ItemController extends BaseController
                     "item_id" => $item_id,
                     "cat_id" => 0,
                     "page_content" => '欢迎使用showdoc。点击右上方的编辑按钮进行编辑吧！',
-                    "addtime" => time()
+                    "addtime" => time(),
+                    "page_addtime" => time(),
                 );
                 $page_id = D("Page")->add($insert);
             }
@@ -633,10 +688,30 @@ class ItemController extends BaseController
                     "item_id" => $item_id,
                     "cat_id" => 0,
                     "page_content" => '',
-                    "addtime" => time()
+                    "addtime" => time(),
+                    "page_addtime" => time(),
                 );
                 $page_id = D("Page")->add($insert);
             }
+
+            // 如果传递了分组id，则把该项目也加入该分组下
+            if ($item_group_id > 0) {
+                $res = D("ItemGroup")->where(" id = '$item_group_id' ")->find();
+                if ($res && $res['item_ids']) {
+                    $item_ids = explode(',', $res['item_ids']);
+                    if (!in_array($item_id, $item_ids)) {
+                        $item_ids[] = $item_id;
+                    }
+                    $new_item_ids = implode(',', $item_ids);
+
+                    // 更新项目分组
+                    $result = D("ItemGroup")->where("id = '$item_group_id'")->save(['item_ids' => $new_item_ids]);
+                } else {
+                    // 如果不存在则初始化
+                    $result = D("ItemGroup")->where("id = '$item_group_id'")->save(['item_ids' => $item_id]);
+                }
+            }
+
             $this->sendResult(array("item_id" => $item_id));
         } else {
             $this->sendError(10101);
@@ -701,7 +776,9 @@ class ItemController extends BaseController
         }
         $item = D("Item")->where("item_id = '%d' and is_del = 0 ", array($item_id))->find();
         $keyword =  \SQLite3::escapeString($keyword);
-        $pages = D("Page")->search($item_id, $keyword);
+        // 如果用户被分配了 目录权限 ，则获取他在该项目下拥有权限的目录id
+        $cat_id = D("Member")->getCatId($item_id, $uid);
+        $pages = D("Page")->search($item_id, $cat_id, $keyword);
         if ($pages) {
             foreach ($pages as $key => $value) {
                 $page_content = htmlspecialchars_decode($value['page_content']);
@@ -738,5 +815,34 @@ class ItemController extends BaseController
         $list = D("ItemChangeLog")->getLog($item_id, $page, $count);
         $list = $list ? $list : array();
         $this->sendResult($list);
+    }
+
+    //标星一个项目
+    public function star()
+    {
+        $item_id = I("post.item_id/d");
+        $login_user = $this->checkLogin();
+
+        if (!$this->checkItemVisit($login_user['uid'], $item_id)) {
+            $this->sendError(10103);
+            return;
+        }
+
+        $data = array();
+        $data['uid'] = $login_user['uid'];
+        $data['item_id'] = $item_id;
+        $data['created_at'] = date("Y-m-d H:i:s");
+        $data['updated_at'] = date("Y-m-d H:i:s");
+        $id = D("ItemStar")->add($data);
+        $this->sendResult($id);
+    }
+
+    //取消标星一个项目
+    public function unstar()
+    {
+        $item_id = I("post.item_id/d");
+        $login_user = $this->checkLogin();
+        D("ItemStar")->where(" uid = '$login_user[uid]' and item_id = '$item_id' ")->delete();
+        $this->sendResult(array());
     }
 }

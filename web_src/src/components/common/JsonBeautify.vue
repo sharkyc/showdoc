@@ -1,9 +1,10 @@
 <template>
   <div>
-    <el-dialog
+    <SDialog
+      v-if="dialogFormVisible"
       :title="$t('beautify_json')"
-      :visible.sync="dialogFormVisible"
-      :close-on-click-modal="false"
+      :onCancel="cancel"
+      :onOK="transform"
     >
       <el-form>
         <el-input
@@ -14,15 +15,7 @@
           v-model="content"
         ></el-input>
       </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">{{
-          $t('cancel')
-        }}</el-button>
-        <el-button type="primary" @click="transform">{{
-          $t('confirm')
-        }}</el-button>
-      </div>
-    </el-dialog>
+    </SDialog>
   </div>
 </template>
 
@@ -31,13 +24,14 @@ export default {
   name: 'JsonBeautify',
   props: {
     formLabelWidth: '120px',
-    callback: ''
+    callback: '',
+    cancel: ''
   },
   data() {
     return {
       content: '',
       json_table_data: '',
-      dialogFormVisible: false
+      dialogFormVisible: true
     }
   },
   methods: {
@@ -51,7 +45,6 @@ export default {
         // 非json数据直接显示
         this.callback(data)
       }
-      this.dialogFormVisible = false
     }
   }
 }

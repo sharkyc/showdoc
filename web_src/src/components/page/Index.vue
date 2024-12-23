@@ -24,7 +24,7 @@
         </div>
       </div>
     </div>
-    <BackToTop></BackToTop>
+    <el-backtop right="40" bottom="40"></el-backtop>
     <Toc v-if="page_id && showToc"></Toc>
     <Footer></Footer>
     <div class></div>
@@ -35,8 +35,6 @@
 #page_md_content {
   padding: 10px 10px 90px 10px;
   overflow: hidden;
-  font-size: 11pt;
-  line-height: 1.7;
   color: #333;
 }
 
@@ -106,7 +104,7 @@ pre ol {
 
 #full-page {
   float: right;
-  font-size: 25px;
+  font-size: 18px;
   margin-top: -50px;
   margin-right: 30px;
   cursor: pointer;
@@ -116,8 +114,8 @@ pre ol {
 
 <script>
 import Editormd from '@/components/common/Editormd'
-import BackToTop from '@/components/common/BackToTop'
 import Toc from '@/components/common/Toc'
+import { rederPageContent } from '@/models/page'
 
 export default {
   data() {
@@ -135,44 +133,43 @@ export default {
   },
   components: {
     Editormd,
-    BackToTop,
     Toc
   },
   methods: {
-    get_page_content() {
-      var that = this
+    getPageContent() {
       var url
-      var page_id = that.$route.params.page_id
-      var unique_key = that.$route.params.unique_key
+      var page_id = this.$route.params.page_id
+      var unique_key = this.$route.params.unique_key
       if (unique_key) {
-        url = DocConfig.server + '/api/page/infoByKey'
+        url = '/api/page/infoByKey'
       } else {
-        url = DocConfig.server + '/api/page/info'
+        url = '/api/page/info'
       }
-
-      var params = new URLSearchParams()
-      params.append('page_id', page_id)
-      params.append('unique_key', unique_key)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          // that.$message.success("加载成功");
-          that.content = response.data.data.page_content
-          that.page_title = response.data.data.page_title
-          that.page_id = response.data.data.page_id
-        } else if (
-          response.data.error_code === 10307 ||
-          response.data.error_code === 10303
-        ) {
+      this.request(
+        url,
+        {
+          page_id: page_id,
+          unique_key: unique_key
+        },
+        'post',
+        false
+      ).then(data => {
+        if (data.error_code === 0) {
+          this.content = rederPageContent(data.data.page_content)
+          this.page_title = data.data.page_title
+          this.page_id = data.data.page_id
+          document.title = data.data.page_title
+        } else if (data.error_code === 10307 || data.error_code === 10303) {
           // 需要输入密码
-          that.$router.replace({
+          this.$router.replace({
             path: '/item/password/0',
             query: {
               page_id: page_id,
-              redirect: that.$router.currentRoute.fullPath
+              redirect: this.$router.currentRoute.fullPath
             }
           })
         } else {
-          that.$alert(response.data.error_message)
+          alert(data.error_message)
         }
       })
     },
@@ -209,7 +206,7 @@ export default {
     }
   },
   mounted() {
-    this.get_page_content()
+    this.getPageContent()
     // 根据屏幕宽度进行响应(应对移动设备的访问)
     if (this.isMobile() || window.screen.width < 1000) {
       this.$nextTick(() => {
@@ -218,6 +215,8 @@ export default {
       })
     }
   },
-  beforeDestroy() {}
+  beforeDestroy() {
+    document.title = 'ShowDoc'
+  }
 }
 </script>

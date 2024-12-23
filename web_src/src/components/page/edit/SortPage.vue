@@ -1,68 +1,58 @@
 <!-- 页面排序 -->
 <template>
-  <div class="hello">
-    <Header></Header>
-
-    <el-container class="container-narrow">
-      <el-dialog
-        :title="$t('sort_pages')"
-        :modal="is_modal"
-        :visible.sync="dialogTableVisible"
-        :close-on-click-modal="false"
-        :before-close="callback"
+  <div class="">
+    <SDialog
+      :title="$t('sort_pages')"
+      :onCancel="callback"
+      :showCancel="false"
+      :onOK="callback"
+    >
+      <p class="tips-text">{{ $t('sort_pages_tips') }}</p>
+      <el-select
+        :placeholder="$t('optional')"
+        class="select-cat"
+        v-model="cat_id"
+        v-if="belong_to_catalogs"
+        filterable
       >
-        <div class="dialog-body">
-          <p class="tips">{{ $t('sort_pages_tips') }}</p>
-          <el-select
-            :placeholder="$t('optional')"
-            class="select-cat"
-            v-model="cat_id"
-            v-if="belong_to_catalogs"
+        <el-option
+          v-for="cat in belong_to_catalogs"
+          :key="cat.cat_name"
+          :label="cat.cat_name"
+          :value="cat.cat_id"
+        ></el-option>
+      </el-select>
+      <draggable v-model="pages" tag="div" group="page" @end="endMove">
+        <div
+          class="page-box cursor-move"
+          v-for="page in pages"
+          :key="page.page_id"
+        >
+          <span class="page-name "
+            ><i class="el-icon-sort font-bold	"></i>&nbsp;&nbsp;{{
+              page.page_title
+            }}</span
           >
-            <el-option
-              v-for="cat in belong_to_catalogs"
-              :key="cat.cat_name"
-              :label="cat.cat_name"
-              :value="cat.cat_id"
-            ></el-option>
-          </el-select>
-          <draggable v-model="pages" tag="div" group="page" @end="endMove">
-            <div class="page-box" v-for="page in pages" :key="page.page_id">
-              <span class="page-name">{{ page.page_title }}</span>
-            </div>
-          </draggable>
         </div>
-      </el-dialog>
-    </el-container>
-    <Footer></Footer>
-    <div class></div>
+      </draggable>
+    </SDialog>
   </div>
 </template>
 
 <style scoped>
-.dialog-body {
-  min-height: 400px;
-  max-height: 90%;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
 .page-box {
-  background-color: rgb(250, 250, 250);
   width: 98%;
-  height: 40px;
+  height: 60px;
   margin-top: 10px;
-  border: 1px solid #d9d9d9;
-  border-radius: 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.page-box:hover {
+  background-color: white;
 }
 .page-name {
-  line-height: 40px;
-  margin-left: 20px;
-  color: #262626;
-}
-.tips {
+  line-height: 60px;
   margin-left: 10px;
-  color: #9ea1a6;
-  font-size: 11px;
+  color: #262626;
 }
 </style>
 
@@ -78,8 +68,6 @@ export default {
   },
   data() {
     return {
-      currentDate: new Date(),
-      dialogTableVisible: true,
       pages: [],
       belong_to_catalogs: []
     }
@@ -88,28 +76,14 @@ export default {
     draggable
   },
   methods: {
-    show() {
-      this.dialogTableVisible = true
-    },
     // 获取某目录下的所有页面
-    get_pages() {
-      var that = this
-      var url = DocConfig.server + '/api/catalog/getPagesBycat'
-      var params = new URLSearchParams()
-      params.append('item_id', this.item_id)
-      params.append('cat_id', this.cat_id)
-      that.axios
-        .post(url, params)
-        .then(function(response) {
-          if (response.data.error_code === 0) {
-            that.pages = response.data.data
-          } else {
-            that.$alert(response.data.error_message)
-          }
-        })
-        .catch(function(error) {
-          console.log(error)
-        })
+    getPages() {
+      this.request('/api/catalog/getPagesBycat', {
+        item_id: this.item_id,
+        cat_id: this.cat_id
+      }).then(data => {
+        this.pages = data.data
+      })
     },
     endMove(evt) {
       let data = {}
@@ -117,20 +91,18 @@ export default {
         let key = this.pages[i]['page_id']
         data[key] = i + 1
       }
-      this.sort_page(data)
+      this.sortPage(data)
     },
-    sort_page(data) {
-      var that = this
-      var url = DocConfig.server + '/api/page/sort'
-      var params = new URLSearchParams()
-      params.append('pages', JSON.stringify(data))
-      params.append('item_id', this.item_id)
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
-          that.get_pages()
+    sortPage(data) {
+      this.request('/api/page/sort', {
+        pages: JSON.stringify(data),
+        item_id: this.item_id
+      }).then(data => {
+        if (data.error_code === 0) {
+          this.getPages()
           // window.location.reload();
         } else {
-          that.$alert(response.data.error_message, '', {
+          this.$alert(data.error_message, '', {
             callback: function() {
               window.location.reload()
             }
@@ -148,11 +120,11 @@ export default {
   },
   watch: {
     cat_id: function() {
-      this.get_pages()
+      this.getPages()
     }
   },
   mounted() {
-    this.get_pages()
+    this.getPages()
     this.getCatListName()
   }
 }

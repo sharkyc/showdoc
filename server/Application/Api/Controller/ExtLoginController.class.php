@@ -16,6 +16,7 @@ class ExtLoginController extends BaseController
         $time = I("time");
         $token = I("token");
         $redirect = I("redirect");
+        $name = I("name");
 
         if ($time < (time() - 60)) {
             $this->sendError(10101, "已过期");
@@ -24,15 +25,19 @@ class ExtLoginController extends BaseController
         $login_secret_key = D("Options")->get("login_secret_key");
         if (!$login_secret_key) return false;
         $new_token = md5($username . $login_secret_key . $time);
-        if (!($token ===  $new_token)) {
+        if (!($token === $new_token)) {
             $this->sendError(10101, "token不正确");
             return;
         }
 
         $res = D("User")->where("( username='%s' ) ", array($username))->find();
         if (!$res) {
-            D("User")->register($username, md5("savsnyjh" . time() . rand()));
+            $new_uid = D("User")->register($username, md5("savsnyjh" . time() . rand()));
             $res = D("User")->where("( username='%s' ) ", array($username))->find();
+            if ($name) {
+                D("User")->where(" uid = '$new_uid' ")->save(array("name" => $name));
+            }
+
         }
         if ($res) {
             // var_dump($res); return ;
@@ -40,11 +45,16 @@ class ExtLoginController extends BaseController
                 $this->sendError(10101, "为了安全，禁止管理员通过这种方式登录");
                 return;
             }
+            $uid = $res['uid'];
+            if ($name) {
 
-            D("User")->setLastTime($res['uid']);
+                D("User")->where(" uid = '$uid' ")->save(array("name" => $name));
+            }
+            D("User")->setLastTime($uid);
+
             unset($res['password']);
             session("login_user", $res);
-            $token = D("UserToken")->createToken($res['uid'], 60 * 60 * 24 * 180);
+            $token = D("UserToken")->createToken($uid, 60 * 60 * 24 * 180);
             cookie('cookie_token', $token, array('expire' => 60 * 60 * 24 * 180, 'httponly' => 'httponly')); //此处由服务端控制token是否过期，所以cookies过期时间设置多久都无所谓
             if ($redirect) {
                 $redirect = urldecode($redirect);
@@ -54,6 +64,29 @@ class ExtLoginController extends BaseController
             }
         }
     }
+
+    private function getUserNameFromOAuth2($array)
+    {
+        $keysToCheck = ["preferred_username", "name", "username", "login"];
+
+        foreach ($array as $key => $value) {
+            if (!is_array($value) && in_array($key, $keysToCheck, true)) {
+                return $value; // 找到匹配的键，直接返回值
+            }
+        }
+
+        foreach ($array as $value) {
+            if (is_array($value)) {
+                $username = $this->getUserNameFromOAuth2($value); // 递归检查子数组
+                if ($username) {
+                    return $username; // 如果找到，返回结果
+                }
+            }
+        }
+
+        return false; // 如果没有找到，返回 false
+    }
+
 
     public function oauth2()
     {
@@ -85,11 +118,11 @@ class ExtLoginController extends BaseController
 
 
         $provider = new \League\OAuth2\Client\Provider\GenericProvider([
-            'clientId'                => $clientId,    // The client ID assigned to you by the provider
-            'clientSecret'            => $clientSecret,    // The client password assigned to you by the provider
-            'redirectUri'             => $redirectUri,
-            'urlAuthorize'            => $urlAuthorize,
-            'urlAccessToken'          =>  $urlAccessToken,
+            'clientId' => $clientId,    // The client ID assigned to you by the provider
+            'clientSecret' => $clientSecret,    // The client password assigned to you by the provider
+            'redirectUri' => $redirectUri,
+            'urlAuthorize' => $urlAuthorize,
+            'urlAccessToken' => $urlAccessToken,
             'urlResourceOwnerDetails' => $urlResourceOwnerDetails,
         ], [
             'httpClient' => new \GuzzleHttp\Client(['verify' => false]),
@@ -134,20 +167,20 @@ class ExtLoginController extends BaseController
                 //echo 'Expired in: ' . $accessToken->getExpires() . "<br>";
                 // echo 'Already expired? ' . ($accessToken->hasExpired() ? 'expired' : 'not expired') . "<br>";
 
-                $res = http_get($urlUserInfo . "?access_token=" . $accessToken->getToken());
-
+                $access_token_string = $accessToken->getToken();
+                $user_info_url = $urlUserInfo . "?access_token=" . $access_token_string;
+                $oCurl = curl_init();   //初始化curl，
+                curl_setopt($oCurl, CURLOPT_URL, $user_info_url);   //设置网址
+                curl_setopt($oCurl, CURLOPT_RETURNTRANSFER, 1);  //将curl_exec的结果返回
+                curl_setopt($oCurl, CURLOPT_SSL_VERIFYPEER, FALSE);
+                curl_setopt($oCurl, CURLOPT_SSL_VERIFYHOST, FALSE);
+                curl_setopt($oCurl, CURLOPT_HEADER, 0);         //是否输出返回头信息
+                curl_setopt($oCurl, CURLOPT_HTTPHEADER, array("Authorization: bearer {$access_token_string}", "user-agent: showdoc", "accept:application/json"));
+                $res = curl_exec($oCurl);   //执行
+                curl_close($oCurl);          //关闭会话
                 $res_array = json_decode($res, true);
                 if ($res_array) {
-                    $username = '';
-                    if ($res_array['preferred_username']) {
-                        $username = $res_array['preferred_username'];
-                    }
-                    if ($res_array['name']) {
-                        $username = $res_array['name'];
-                    }
-                    if ($res_array['username']) {
-                        $username = $res_array['username'];
-                    }
+                    $username = $this->getUserNameFromOAuth2($res_array);
                     if (!$username) {
                         echo "返回信息中无法获取用户名。返回的内容如下：" . $res;
                         return;
@@ -156,6 +189,10 @@ class ExtLoginController extends BaseController
                     if (!$info) {
                         D("User")->register($username, md5($username . time() . rand()));
                         $info = D("User")->where("username='%s'", array($username))->find();
+                        if ($res_array['name']) {
+                            D("User")->where("username='%s'", array($username))->save(array("name" => $res_array['name']));
+                        }
+
                     }
 
                     D("User")->setLastTime($info['uid']);

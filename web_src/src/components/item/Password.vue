@@ -24,17 +24,17 @@
             ></el-input>
           </el-form-item>
 
-          <el-form-item label v-if="show_v_code">
+          <el-form-item label>
             <el-input
               type="text"
               auto-complete="off"
-              v-model="v_code"
+              v-model="captcha"
               :placeholder="$t('verification_code')"
             ></el-input>
             <img
               v-bind:src="v_code_img"
               class="v_code_img"
-              v-on:click="change_v_code_img"
+              v-on:click="changeVcodeImg"
             />
           </el-form-item>
 
@@ -45,8 +45,10 @@
           </el-form-item>
 
           <el-form-item label>
-            <router-link to="/user/login">{{ $t('login') }}</router-link>
-            &nbsp;&nbsp;&nbsp;
+            <router-link :to="'/user/login?redirect=' + redirect">{{
+              $t('login')
+            }}</router-link
+            >&nbsp;&nbsp;&nbsp;
           </el-form-item>
         </el-form>
       </el-card>
@@ -63,50 +65,67 @@ export default {
   data() {
     return {
       password: '',
-      v_code: '',
-      v_code_img: DocConfig.server + '/api/common/verify',
-      show_v_code: false
+      captchaId: 0,
+      captcha: '',
+      v_code_img: '',
+      redirect: ''
     }
   },
   methods: {
     onSubmit() {
       var item_id = this.$route.params.item_id ? this.$route.params.item_id : 0
       var page_id = this.$route.query.page_id ? this.$route.query.page_id : 0
-      var that = this
-      var url = DocConfig.server + '/api/item/pwd'
-
-      var params = new URLSearchParams()
-      params.append('item_id', item_id)
-      params.append('page_id', page_id)
-      params.append('password', this.password)
-      params.append('v_code', this.v_code)
-
-      that.axios.post(url, params).then(function(response) {
-        if (response.data.error_code === 0) {
+      let params = {
+        item_id: item_id,
+        page_id: page_id,
+        password: this.password,
+        captcha: this.captcha,
+        captcha_id: this.captchaId
+      }
+      this.request('/api/item/pwd', params, 'post', false).then(data => {
+        if (data.error_code === 0) {
+          // _item_pwd参数的作用在于：跨域请求的时候无法带cooies，自然无法记住session。用这个参数使记住用户输入过项目密码。
+          sessionStorage.setItem('_item_pwd', this.password)
           let redirect = decodeURIComponent(
-            that.$route.query.redirect || '/' + item_id
+            this.$route.query.redirect || '/' + item_id
           )
-          that.$router.replace({
+          this.$router.replace({
             path: redirect
           })
         } else {
-          if (
-            response.data.error_code === 10206 ||
-            response.data.error_code === 10308
-          ) {
-            that.show_v_code = true
-            that.change_v_code_img()
-          }
-          that.$alert(response.data.error_message)
+          this.changeVcodeImg()
+          this.$alert(data.error_message)
         }
       })
     },
-    change_v_code_img() {
-      var rand = '&rand=' + Math.random()
-      this.v_code_img += rand
+    changeVcodeImg() {
+      this.request('/api/common/createCaptcha', {}).then(data => {
+        const json = data.data
+        if (DocConfig.server.indexOf('?') > -1) {
+          this.v_code_img =
+            DocConfig.server +
+            '/api/common/showCaptcha&captcha_id=' +
+            json.captcha_id +
+            '&' +
+            Date.parse(new Date())
+        } else {
+          this.v_code_img =
+            DocConfig.server +
+            '/api/common/showCaptcha?captcha_id=' +
+            json.captcha_id +
+            '&' +
+            Date.parse(new Date())
+        }
+
+        this.captchaId = json.captcha_id
+      })
     }
   },
-  mounted() {},
+  mounted() {
+    this.changeVcodeImg()
+    var item_id = this.$route.params.item_id ? this.$route.params.item_id : 0
+    this.redirect = this.$route.query.redirect || '/' + item_id
+  },
   beforeDestroy() {}
 }
 </script>

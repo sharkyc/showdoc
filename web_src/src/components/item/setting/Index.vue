@@ -17,10 +17,6 @@
               <Member></Member>
             </el-tab-pane>
 
-            <el-tab-pane :label="$t('advance_setting')" name="third">
-              <Advanced></Advanced>
-            </el-tab-pane>
-
             <el-tab-pane :label="$t('open_api')" name="four">
               <OpenApi></OpenApi>
             </el-tab-pane>
@@ -40,16 +36,13 @@
 <script>
 import Info from '@/components/item/setting/Info'
 import Member from '@/components/item/setting/Member'
-import Advanced from '@/components/item/setting/Advanced'
 import OpenApi from '@/components/item/setting/OpenApi'
 import Recycle from '@/components/item/setting/Recycle'
-
 export default {
   name: 'Login',
   components: {
     Info,
     Member,
-    Advanced,
     OpenApi,
     Recycle
   },
@@ -59,25 +52,6 @@ export default {
     }
   },
   methods: {
-    get_item_info() {
-      var that = this
-      var url = DocConfig.server + '/api/item/detail'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      that.axios
-        .post(url, params)
-        .then(function(response) {
-          if (response.data.error_code === 0) {
-            var Info = response.data.data
-            that.infoForm = Info
-          } else {
-            that.$alert(response.data.error_message)
-          }
-        })
-        .catch(function(error) {
-          console.log(error)
-        })
-    },
     goback() {
       this.$router.go(-1)
     }

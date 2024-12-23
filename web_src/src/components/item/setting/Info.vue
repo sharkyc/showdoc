@@ -7,21 +7,40 @@
       v-model="infoForm"
     >
       <el-form-item>
-        <el-input
-          type="text"
-          auto-complete="off"
-          v-model="infoForm.item_name"
-          placeholder
-        ></el-input>
+        <el-tooltip effect="dark" content="项目名" placement="right">
+          <el-input
+            type="text"
+            auto-complete="off"
+            v-model="infoForm.item_name"
+            placeholder
+          ></el-input>
+        </el-tooltip>
       </el-form-item>
 
       <el-form-item>
-        <el-input
-          type="text"
-          auto-complete="off"
-          v-model="infoForm.item_description"
-          :placeholder="$t('item_description')"
-        ></el-input>
+        <el-tooltip effect="dark" content="项目描述" placement="right">
+          <el-input
+            type="text"
+            auto-complete="off"
+            v-model="infoForm.item_description"
+            :placeholder="$t('item_description')"
+          ></el-input>
+        </el-tooltip>
+      </el-form-item>
+
+      <el-form-item>
+        <el-tooltip
+          effect="dark"
+          content="假如你的个性域名设置为abc，则你的项目地址为www.showdoc.com.cn/abc"
+          placement="top-end"
+        >
+          <el-input
+            type="text"
+            auto-complete="off"
+            v-model="infoForm.item_domain"
+            :placeholder="$t('info_item_domain')"
+          ></el-input>
+        </el-tooltip>
       </el-form-item>
 
       <el-form-item label>
@@ -43,7 +62,7 @@
       </el-form-item>
 
       <el-form-item label>
-        <el-button type="primary" style="width:100%;" @click="FormSubmit">{{
+        <el-button type="primary" style="width:100%;" @click="formSubmit">{{
           $t('submit')
         }}</el-button>
       </el-form-item>
@@ -62,62 +81,39 @@ export default {
     }
   },
   methods: {
-    get_item_info() {
-      var that = this
-      var url = DocConfig.server + '/api/item/detail'
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      that.axios
-        .post(url, params)
-        .then(function(response) {
-          if (response.data.error_code === 0) {
-            var Info = response.data.data
-            if (Info.password) {
-              that.isOpenItem = false
-            }
-            that.infoForm = Info
-          } else {
-            that.$alert(response.data.error_message)
-          }
-        })
-        .catch(function(error) {
-          console.log(error)
-        })
+    getItemInfo() {
+      this.request('/api/item/detail', {
+        item_id: this.$route.params.item_id
+      }).then(data => {
+        const json = data.data
+        if (json.password) {
+          this.isOpenItem = false
+        }
+        this.infoForm = json
+      })
     },
-    FormSubmit() {
-      var that = this
-      var url = DocConfig.server + '/api/item/update'
+    formSubmit() {
       if (!this.isOpenItem && !this.infoForm.password) {
-        that.$alert(that.$t('private_item_passwrod'))
+        this.$alert(this.$t('private_item_passwrod'))
         return false
       }
       if (this.isOpenItem) {
         this.infoForm.password = ''
       }
-      var params = new URLSearchParams()
-      params.append('item_id', that.$route.params.item_id)
-      params.append('item_name', this.infoForm.item_name)
-      params.append('item_description', this.infoForm.item_description)
-      params.append('item_domain', this.infoForm.item_domain)
-      params.append('password', this.infoForm.password)
-
-      that.axios
-        .post(url, params)
-        .then(function(response) {
-          if (response.data.error_code === 0) {
-            that.$message.success(that.$t('modify_success'))
-          } else {
-            that.$alert(response.data.error_message)
-          }
-        })
-        .catch(function(error) {
-          console.log(error)
-        })
+      this.request('/api/item/update', {
+        item_id: this.$route.params.item_id,
+        item_name: this.infoForm.item_name,
+        item_description: this.infoForm.item_description,
+        item_domain: this.infoForm.item_domain,
+        password: this.infoForm.password
+      }).then(data => {
+        this.$message.success(this.$t('modify_success'))
+      })
     }
   },
 
   mounted() {
-    this.get_item_info()
+    this.getItemInfo()
   }
 }
 </script>
